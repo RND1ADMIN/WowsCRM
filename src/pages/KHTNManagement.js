@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Plus, Edit, Trash, Search, Filter, X, Upload, ChevronDown, Eye,
-    ChevronLeft, ChevronRight, RefreshCw, FileText, Map
+    ChevronLeft, ChevronRight, RefreshCw, FileText, Map, Cake
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -936,6 +936,14 @@ const KHTNManagement = () => {
                                 Bản đồ phân bổ
                             </button>
 
+                            {/* Thêm nút bản đồ phân bố */}
+                            <button
+                                onClick={() => navigate('/khtn-calendar')}
+                                className="px-4 py-2 text-white bg-gradient-to-r from-pink-400 via-pink-500 to-pink-600 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
+                            >
+                                <Cake className="w-4 h-4" />
+                                Lịch sự kiện
+                            </button>
                             <button
                                 onClick={() => handleOpenModal()}
                                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"

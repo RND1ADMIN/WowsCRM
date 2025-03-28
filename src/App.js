@@ -13,6 +13,9 @@ import DMHHManagement from './pages/DMHHManagement';
 import KHTNDetails from './pages/KHTNDetails';
 import BaoGiaFrom from './pages/BaoGiaFrom';
 import KHTNMap from './pages/KHTNMap';
+import KHTNCalendar from './pages/KHTNCalendar';
+import CSKHManagement from './pages/CSKHManagement';
+import CSKHCalendar from './pages/CSKHCalendar';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -47,6 +50,11 @@ function App() {
                   <Route path="/baogiafrom" element={<BaoGiaFrom />} />
                   <Route path="/khtn/:idCty" element={<KHTNDetails />} />
                   <Route path="/khtn-map" element={<KHTNMap />} />
+                  <Route path="/khtn-calendar" element={<KHTNCalendar />} />
+                  <Route path="/khtn/:idCty/cskh" element={<CSKHManagement />} />
+                  <Route path="/cskh" element={<CSKHManagement />} />
+                  <Route path="/cskh-calendar" element={<CSKHCalendar />} />
+
 
 
 

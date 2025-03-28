@@ -1,9 +1,15 @@
 // KHTNDetails.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Printer, Building, User, DollarSign, ClipboardList, FileText, X, History, Calendar } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { 
+  ChevronLeft, Printer, Building, User, DollarSign, ClipboardList,  Plus,
+  FileText, X, History, Calendar, Heart, MapPin, Edit, 
+  ExternalLink, Download, Phone, Mail, Globe
+} from 'lucide-react';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
+import CSKHButton from '../components/ui/CSKHButton';
 
 const KHTNDetails = () => {
     const { idCty } = useParams();
@@ -15,10 +21,34 @@ const KHTNDetails = () => {
     const [activeTab, setActiveTab] = useState('company');
     const [selectedCare, setSelectedCare] = useState(null);
     const [showCareDetail, setShowCareDetail] = useState(false);
+    const [careFilter, setCareFilter] = useState('all');
+    const [upcomingCare, setUpcomingCare] = useState([]);
+    const [pastCare, setPastCare] = useState([]);
     
     useEffect(() => {
         loadAllData();
     }, [idCty]);
+
+    useEffect(() => {
+        if (careHistory.length > 0) {
+            const today = new Date();
+            
+            // Separate upcoming and past care activities
+            const upcoming = careHistory.filter(care => {
+                const careDate = care['NGÀY DỰ KIẾN'] ? new Date(care['NGÀY DỰ KIẾN']) : null;
+                return careDate && careDate > today;
+            }).sort((a, b) => new Date(a['NGÀY DỰ KIẾN']) - new Date(b['NGÀY DỰ KIẾN']));
+            
+            const past = careHistory.filter(care => {
+                const careDate = care['NGÀY DỰ KIẾN'] ? new Date(care['NGÀY DỰ KIẾN']) : null;
+                return !careDate || careDate <= today;
+            }).sort((a, b) => new Date(b['NGÀY DỰ KIẾN'] || b['NGÀY CHĂM THỰC TẾ']) - new Date(a['NGÀY DỰ KIẾN'] || a['NGÀY CHĂM THỰC TẾ']));
+            
+            setUpcomingCare(upcoming);
+            setPastCare(past);
+        }
+    }, [careHistory]);
+    
     const loadAllData = async () => {
         try {
             setLoading(true);
@@ -81,6 +111,17 @@ const KHTNDetails = () => {
             return dateString;
         }
     };
+    
+    const formatDateWithTime = (dateString) => {
+        if (!dateString) return 'Chưa có';
+
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        } catch (error) {
+            return dateString;
+        }
+    };
 
     const formatCurrency = (amount) => {
         if (!amount) return 'Chưa có';
@@ -93,6 +134,38 @@ const KHTNDetails = () => {
 
     const handlePrint = () => {
         window.print();
+    };
+    
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'Hoàn thành':
+                return 'bg-green-100 text-green-800';
+            case 'Đang thực hiện':
+                return 'bg-blue-100 text-blue-800';
+            case 'Đã lên kế hoạch':
+                return 'bg-amber-100 text-amber-800';
+            case 'Hoãn lại':
+                return 'bg-orange-100 text-orange-800';
+            case 'Hủy bỏ':
+                return 'bg-red-100 text-red-800';
+            default:
+                return 'bg-gray-100 text-gray-800';
+        }
+    };
+    
+    const filterCareHistory = () => {
+        if (careFilter === 'all') {
+            return careHistory;
+        } else if (careFilter === 'upcoming') {
+            return upcomingCare;
+        } else if (careFilter === 'past') {
+            return pastCare;
+        } else if (careFilter === 'completed') {
+            return careHistory.filter(care => care['TRẠNG THÁI KH'] === 'Hoàn thành');
+        } else if (careFilter === 'pending') {
+            return careHistory.filter(care => care['TRẠNG THÁI KH'] !== 'Hoàn thành');
+        }
+        return careHistory;
     };
 
     if (loading) {
@@ -143,9 +216,57 @@ const KHTNDetails = () => {
                                 <ChevronLeft className="h-4 w-4 mr-2" />
                                 Quay lại
                             </button>
-                           
+                            
                         </div>
                     </div>
+
+                    {/* Quick Contact Info */}
+                    <div className="mb-6 flex flex-wrap gap-4 pb-4 border-b border-gray-200">
+                        {customer['SỐ ĐT NGƯỜI LIÊN HỆ'] && (
+                            <a 
+                                href={`tel:${customer['SỐ ĐT NGƯỜI LIÊN HỆ']}`} 
+                                className="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-sm hover:bg-indigo-100"
+                            >
+                                <Phone className="h-4 w-4 mr-2" />
+                                {customer['SỐ ĐT NGƯỜI LIÊN HỆ']}
+                            </a>
+                        )}
+                        
+                        {customer['EMAIL NGƯỜI LIÊN HỆ'] && (
+                            <a 
+                                href={`mailto:${customer['EMAIL NGƯỜI LIÊN HỆ']}`} 
+                                className="inline-flex items-center px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-sm hover:bg-green-100"
+                            >
+                                <Mail className="h-4 w-4 mr-2" />
+                                {customer['EMAIL NGƯỜI LIÊN HỆ']}
+                            </a>
+                        )}
+                        
+                        {customer['EMAIL CÔNG TY'] && (
+                            <a 
+                                href={`mailto:${customer['EMAIL CÔNG TY']}`} 
+                                className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm hover:bg-blue-100"
+                            >
+                                <Globe className="h-4 w-4 mr-2" />
+                                {customer['EMAIL CÔNG TY']}
+                            </a>
+                        )}
+                        
+                        <span className="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm">
+                            <User className="h-4 w-4 mr-2" />
+                            Người liên hệ: {customer['NGƯỜI LIÊN HỆ']}
+                        </span>
+                        
+                        <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm ${
+                            customer['CHỐT THÀNH KH'] === 'Đã thành khách hàng' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-amber-100 text-amber-800'
+                        }`}>
+                            <ClipboardList className="h-4 w-4 mr-2" />
+                            {customer['CHỐT THÀNH KH'] || 'Khách hàng tiềm năng'}
+                        </span>
+                    </div>
+
 
                     {/* Tabs */}
                     <div className="border-b border-gray-200 mb-6 no-print">
@@ -197,7 +318,7 @@ const KHTNDetails = () => {
                                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                                     }`}
                             >
-                                <Calendar className="h-4 w-4 mr-2" />
+                                <Heart className="h-4 w-4 mr-2" />
                                 Lịch sử CSKH ({careHistory.length})
                             </button>
                             <button
@@ -387,313 +508,458 @@ const KHTNDetails = () => {
                             </div>
                         )}
 
-                        {/* Quote History Tab */}
-                        {activeTab === 'quotes' && (
-                            <div>
-                                <h2 className="text-xl font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
-                                    Lịch sử báo giá
-                                </h2>
+                       {/* Quote History Tab */}
+                       {activeTab === 'quotes' && (
+                           <div>
+                               <h2 className="text-xl font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                                   Lịch sử báo giá
+                               </h2>
 
-                                {quoteHistory.length > 0 ? (
-                                    <div className="overflow-x-auto">
-                                        <table className="min-w-full divide-y divide-gray-200">
-                                            <thead className="bg-gray-50">
-                                                <tr>
-                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ngày báo giá</th>
-                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Số HĐ</th>
-                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thời hạn</th>
-                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Số buổi</th>
-                                                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Tổng tiền</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="bg-white divide-y divide-gray-200">
-                                                {quoteHistory.map((quote) => (
-                                                    <tr key={quote['ID_BBGTH']} className="hover:bg-gray-50">
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                            {quote['ID_BBGTH']}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                            {formatDate(quote['NGÀY BÁO GIÁ'])}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                            {quote['SỐ HĐ'] || '—'}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                            {quote['THỜI HẠN'] || '—'}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                            {quote['SỐ BUỔI'] || '—'}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                                                            {formatCurrency(quote['TỔNG TIỀN'])}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                ) : (
-                                    <div className="bg-gray-50 p-6 rounded-lg text-center">
-                                        <p className="text-gray-500">Chưa có lịch sử báo giá nào</p>
-                                    </div>
-                                )}
+                               {quoteHistory.length > 0 ? (
+                                   <div className="overflow-x-auto">
+                                       <table className="min-w-full divide-y divide-gray-200">
+                                           <thead className="bg-gray-50">
+                                               <tr>
+                                                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ngày báo giá</th>
+                                                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Số HĐ</th>
+                                                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thời hạn</th>
+                                                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Số buổi</th>
+                                                   <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Tổng tiền</th>
+                                               </tr>
+                                           </thead>
+                                           <tbody className="bg-white divide-y divide-gray-200">
+                                               {quoteHistory.map((quote) => (
+                                                   <tr key={quote['ID_BBGTH']} className="hover:bg-gray-50">
+                                                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                           {quote['ID_BBGTH']}
+                                                       </td>
+                                                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                           {formatDate(quote['NGÀY BÁO GIÁ'])}
+                                                       </td>
+                                                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                           {quote['SỐ HĐ'] || '—'}
+                                                       </td>
+                                                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                           {quote['THỜI HẠN'] || '—'}
+                                                       </td>
+                                                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                           {quote['SỐ BUỔI'] || '—'}
+                                                       </td>
+                                                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                                                           {formatCurrency(quote['TỔNG TIỀN'])}
+                                                       </td>
+                                                   </tr>
+                                               ))}
+                                           </tbody>
+                                       </table>
+                                   </div>
+                               ) : (
+                                   <div className="bg-gray-50 p-6 rounded-lg text-center">
+                                       <p className="text-gray-500">Chưa có lịch sử báo giá nào</p>
+                                   </div>
+                               )}
 
-                                {quoteHistory.length > 0 && (
-                                    <div className="mt-6">
-                                        <h3 className="text-lg font-medium text-gray-800 mb-3">Chi tiết báo giá gần nhất</h3>
-                                        <div className="bg-gray-50 p-4 rounded-lg shadow-sm">
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                <div>
-                                                    <p className="text-sm text-gray-500 mb-1">Thời hạn báo giá</p>
-                                                    <p className="font-medium">{formatDate(quoteHistory[0]['THỜI HẠN BÁO GIÁ'])}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm text-gray-500 mb-1">Ưu đãi</p>
-                                                    <p className="font-medium">{quoteHistory[0]['ƯU ĐÃI'] || '0%'}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm text-gray-500 mb-1">Phần trăm VAT</p>
-                                                    <p className="font-medium">{quoteHistory[0]['PT VAT'] || '10%'}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm text-gray-500 mb-1">Trước ưu đãi</p>
-                                                    <p className="font-medium">{formatCurrency(quoteHistory[0]['TT TRƯỚC ƯU ĐÃI'])}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm text-gray-500 mb-1">Tiền ưu đãi</p>
-                                                    <p className="font-medium">{formatCurrency(quoteHistory[0]['TT ƯU ĐÃI'])}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm text-gray-500 mb-1">Sau ưu đãi</p>
-                                                    <p className="font-medium">{formatCurrency(quoteHistory[0]['TT SAU ƯU ĐÃI'])}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm text-gray-500 mb-1">Tiền VAT</p>
-                                                    <p className="font-medium">{formatCurrency(quoteHistory[0]['TT VAT'])}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm text-gray-500 mb-1">Sau VAT</p>
-                                                    <p className="font-medium">{formatCurrency(quoteHistory[0]['TT SAU VAT'])}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm text-gray-500 mb-1">Tổng tiền</p>
-                                                    <p className="font-medium text-green-600">{formatCurrency(quoteHistory[0]['TỔNG TIỀN'])}</p>
-                                                </div>
-                                            </div>
+                               {quoteHistory.length > 0 && (
+                                   <div className="mt-6">
+                                       <h3 className="text-lg font-medium text-gray-800 mb-3">Chi tiết báo giá gần nhất</h3>
+                                       <div className="bg-gray-50 p-4 rounded-lg shadow-sm">
+                                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                               <div>
+                                                   <p className="text-sm text-gray-500 mb-1">Thời hạn báo giá</p>
+                                                   <p className="font-medium">{formatDate(quoteHistory[0]['THỜI HẠN BÁO GIÁ'])}</p>
+                                               </div>
+                                               <div>
+                                                   <p className="text-sm text-gray-500 mb-1">Ưu đãi</p>
+                                                   <p className="font-medium">{quoteHistory[0]['ƯU ĐÃI'] || '0%'}</p>
+                                               </div>
+                                               <div>
+                                                   <p className="text-sm text-gray-500 mb-1">Phần trăm VAT</p>
+                                                   <p className="font-medium">{quoteHistory[0]['PT VAT'] || '10%'}</p>
+                                               </div>
+                                               <div>
+                                                   <p className="text-sm text-gray-500 mb-1">Trước ưu đãi</p>
+                                                   <p className="font-medium">{formatCurrency(quoteHistory[0]['TT TRƯỚC ƯU ĐÃI'])}</p>
+                                               </div>
+                                               <div>
+                                                   <p className="text-sm text-gray-500 mb-1">Tiền ưu đãi</p>
+                                                   <p className="font-medium">{formatCurrency(quoteHistory[0]['TT ƯU ĐÃI'])}</p>
+                                               </div>
+                                               <div>
+                                                   <p className="text-sm text-gray-500 mb-1">Sau ưu đãi</p>
+                                                   <p className="font-medium">{formatCurrency(quoteHistory[0]['TT SAU ƯU ĐÃI'])}</p>
+                                               </div>
+                                               <div>
+                                                   <p className="text-sm text-gray-500 mb-1">Tiền VAT</p>
+                                                   <p className="font-medium">{formatCurrency(quoteHistory[0]['TT VAT'])}</p>
+                                               </div>
+                                               <div>
+                                                   <p className="text-sm text-gray-500 mb-1">Sau VAT</p>
+                                                   <p className="font-medium">{formatCurrency(quoteHistory[0]['TT SAU VAT'])}</p>
+                                               </div>
+                                               <div>
+                                                   <p className="text-sm text-gray-500 mb-1">Tổng tiền</p>
+                                                   <p className="font-medium text-green-600">{formatCurrency(quoteHistory[0]['TỔNG TIỀN'])}</p>
+                                               </div>
+                                           </div>
 
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200">
-                                                <div>
-                                                    <p className="text-sm text-gray-500 mb-1">Chi phí</p>
-                                                    <p className="font-medium">{formatCurrency(quoteHistory[0]['CHI PHÍ'])}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm text-gray-500 mb-1">Phí duy trì</p>
-                                                    <p className="font-medium">{formatCurrency(quoteHistory[0]['PHÍ DUY TRÌ'])}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm text-gray-500 mb-1">Phí public app</p>
-                                                    <p className="font-medium">{formatCurrency(quoteHistory[0]['PHÍ PUBLIC APP'])}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200">
+                                               <div>
+                                                   <p className="text-sm text-gray-500 mb-1">Chi phí</p>
+                                                   <p className="font-medium">{formatCurrency(quoteHistory[0]['CHI PHÍ'])}</p>
+                                               </div>
+                                               <div>
+                                                   <p className="text-sm text-gray-500 mb-1">Phí duy trì</p>
+                                                   <p className="font-medium">{formatCurrency(quoteHistory[0]['PHÍ DUY TRÌ'])}</p>
+                                               </div>
+                                               <div>
+                                                   <p className="text-sm text-gray-500 mb-1">Phí public app</p>
+                                                   <p className="font-medium">{formatCurrency(quoteHistory[0]['PHÍ PUBLIC APP'])}</p>
+                                               </div>
+                                           </div>
+                                       </div>
+                                   </div>
+                               )}
+                           </div>
+                       )}
 
-                        {/* Care History Tab */}
-                        {activeTab === 'care' && (
-                            <div>
-                                <h2 className="text-xl font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
-                                    Lịch sử chăm sóc khách hàng
-                                </h2>
+                       {/* Care History Tab */}
+                       {activeTab === 'care' && (
+                           <div>
+                               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 pb-2 border-b border-gray-200">
+                                   <h2 className="text-xl font-semibold text-gray-800">
+                                       Lịch sử chăm sóc khách hàng
+                                   </h2>
+                                   <div className="mt-3 md:mt-0 flex flex-wrap gap-2">
+                                       <CSKHButton idCty={customer['ID_CTY']} className="no-print" />
+                                   </div>
+                               </div>
+                               
+                               {/* Filter Controls */}
+                               <div className="mb-4 flex flex-wrap gap-2 no-print">
+                                   <button
+                                       onClick={() => setCareFilter('all')}
+                                       className={`px-3 py-1.5 rounded-full text-sm ${
+                                           careFilter === 'all' 
+                                               ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' 
+                                               : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                                       }`}
+                                   >
+                                       Tất cả
+                                   </button>
+                                   <button
+                                       onClick={() => setCareFilter('upcoming')}
+                                       className={`px-3 py-1.5 rounded-full text-sm ${
+                                           careFilter === 'upcoming' 
+                                               ? 'bg-amber-100 text-amber-800 border border-amber-200' 
+                                               : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                                       }`}
+                                   >
+                                       Dự kiến ({upcomingCare.length})
+                                   </button>
+                                   <button
+                                       onClick={() => setCareFilter('completed')}
+                                       className={`px-3 py-1.5 rounded-full text-sm ${
+                                           careFilter === 'completed' 
+                                               ? 'bg-green-100 text-green-800 border border-green-200' 
+                                               : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                                       }`}
+                                   >
+                                       Hoàn thành ({careHistory.filter(care => care['TRẠNG THÁI KH'] === 'Hoàn thành').length})
+                                   </button>
+                                   <button
+                                       onClick={() => setCareFilter('pending')}
+                                       className={`px-3 py-1.5 rounded-full text-sm ${
+                                           careFilter === 'pending' 
+                                               ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                                               : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                                       }`}
+                                   >
+                                       Đang thực hiện
+                                   </button>
+                                   <button
+                                       onClick={() => setCareFilter('past')}
+                                       className={`px-3 py-1.5 rounded-full text-sm ${
+                                           careFilter === 'past' 
+                                               ? 'bg-gray-100 text-gray-800 border border-gray-200' 
+                                               : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                                       }`}
+                                   >
+                                       Đã qua
+                                   </button>
+                               </div>
 
-                                {careHistory.length > 0 ? (
-                                    <div className="overflow-x-auto">
-                                        <table className="min-w-full divide-y divide-gray-200">
-                                            <thead className="bg-gray-50">
-                                                <tr>
-                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phân loại KH</th>
-                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loại chăm sóc</th>
-                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ngày dự kiến</th>
-                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ngày thực tế</th>
-                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hình thức</th>
-                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="bg-white divide-y divide-gray-200">
-                                                {careHistory.map((care) => (
-                                                    <tr key={care['ID KH_CSKH']} className="hover:bg-gray-50 cursor-pointer"
-                                                        onClick={() => {
-                                                            // When clicking on a care history row, show detailed view
-                                                            setSelectedCare(care);
-                                                            setShowCareDetail(true);
-                                                        }}>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                            {care['ID KH_CSKH']}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                            {care['PHÂN LOẠI KH'] || '—'}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                            {care['LOẠI CHĂM SÓC'] || '—'}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                            {formatDate(care['NGÀY DỰ KIẾN'])}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                            {formatDate(care['NGÀY CHĂM THỰC TẾ'])}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                            {care['HÌNH THỨC'] || '—'}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap">
-                                                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                                                ${care['TRẠNG THÁI KH'] === 'Đã hoàn thành'
-                                                                    ? 'bg-green-100 text-green-800'
-                                                                    : care['TRẠNG THÁI KH'] === 'Đang tiến hành'
-                                                                        ? 'bg-blue-100 text-blue-800'
-                                                                        : 'bg-yellow-100 text-yellow-800'
-                                                                }`}>
-                                                                {care['TRẠNG THÁI KH'] || 'Chưa thực hiện'}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                ) : (
-                                    <div className="bg-gray-50 p-6 rounded-lg text-center">
-                                        <p className="text-gray-500">Chưa có lịch sử chăm sóc khách hàng nào</p>
-                                    </div>
-                                )}
+                               {/* Upcoming Care Activities Card */}
+                               {upcomingCare.length > 0 && careFilter === 'all' && (
+                                   <div className="mb-6 bg-amber-50 p-4 rounded-lg border border-amber-200">
+                                       <h3 className="text-lg font-medium text-amber-800 mb-3 flex items-center">
+                                           <Calendar className="h-5 w-5 mr-2 text-amber-700" />
+                                           Hoạt động chăm sóc sắp tới
+                                       </h3>
+                                       <div className="space-y-2">
+                                           {upcomingCare.slice(0, 3).map((care) => (
+                                               <div 
+                                                   key={care['ID KH_CSKH']}
+                                                   className="flex items-center justify-between bg-white p-3 rounded-lg cursor-pointer hover:shadow-md transition"
+                                                   onClick={() => {
+                                                       setSelectedCare(care);
+                                                       setShowCareDetail(true);
+                                                   }}
+                                               >
+                                                   <div className="flex items-center">
+                                                       <div className="bg-amber-100 p-2 rounded-full mr-3">
+                                                           <Heart className="h-4 w-4 text-amber-600" />
+                                                       </div>
+                                                       <div>
+                                                           <p className="font-medium">{care['LOẠI CHĂM SÓC'] || 'Hoạt động chăm sóc'}</p>
+                                                           <p className="text-sm text-gray-600">
+                                                               {formatDate(care['NGÀY DỰ KIẾN'])} • {care['HÌNH THỨC'] || 'Chưa xác định'}
+                                                           </p>
+                                                       </div>
+                                                   </div>
+                                                   <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(care['TRẠNG THÁI KH'])}`}>
+                                                       {care['TRẠNG THÁI KH'] || 'Đã lên kế hoạch'}
+                                                   </span>
+                                               </div>
+                                           ))}
+                                           {upcomingCare.length > 3 && (
+                                               <button
+                                                   onClick={() => setCareFilter('upcoming')}
+                                                   className="text-sm text-amber-800 hover:text-amber-900 hover:underline mt-2"
+                                               >
+                                                   Xem tất cả {upcomingCare.length} hoạt động sắp tới
+                                               </button>
+                                           )}
+                                       </div>
+                                   </div>
+                               )}
 
-                                {/* Modal for care details */}
-                                {showCareDetail && selectedCare && (
-                                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                                        <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                                            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                                                <h3 className="text-lg font-semibold text-gray-800">Chi tiết chăm sóc khách hàng</h3>
-                                                <button
-                                                    onClick={() => setShowCareDetail(false)}
-                                                    className="text-gray-400 hover:text-gray-500"
-                                                >
-                                                    <X className="w-5 h-5" />
-                                                </button>
-                                            </div>
+                               {filterCareHistory().length > 0 ? (
+                                   <div className="space-y-4">
+                                       {filterCareHistory().map((care) => (
+                                           <div 
+                                               key={care['ID KH_CSKH']} 
+                                               className="border rounded-lg p-4 hover:shadow-md transition cursor-pointer bg-white"
+                                               onClick={() => {
+                                                   setSelectedCare(care);
+                                                   setShowCareDetail(true);
+                                               }}
+                                           >
+                                               <div className="flex justify-between items-start">
+                                                   <div className="flex items-start">
+                                                       <div className={`p-3 rounded-full mr-3 flex-shrink-0 bg-indigo-100`}>
+                                                           <Heart className={`h-5 w-5 text-indigo-600`} />
+                                                       </div>
+                                                       <div>
+                                                           <h4 className="font-medium text-gray-800 mb-1">
+                                                               {care['LOẠI CHĂM SÓC'] || 'Chăm sóc khách hàng'}
+                                                           </h4>
+                                                           <div className="text-sm text-gray-600 mb-2">
+                                                               {care['NGÀY DỰ KIẾN'] && (
+                                                                   <span className="inline-flex items-center mr-3">
+                                                                       <Calendar className="h-3 w-3 mr-1" />
+                                                                       Dự kiến: {formatDate(care['NGÀY DỰ KIẾN'])}
+                                                                   </span>
+                                                               )}
+                                                               {care['NGÀY CHĂM THỰC TẾ'] && (
+                                                                   <span className="inline-flex items-center">
+                                                                       <History className="h-3 w-3 mr-1" />
+                                                                       Thực tế: {formatDate(care['NGÀY CHĂM THỰC TẾ'])}
+                                                                   </span>
+                                                               )}
+                                                           </div>
+                                                           {care['HÌNH THỨC'] && (
+                                                               <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs mr-2">
+                                                                   {care['HÌNH THỨC']}
+                                                               </span>
+                                                           )}
+                                                           {care['NGƯỜI CHĂM SÓC'] && (
+                                                               <span className="text-xs text-gray-500 inline-flex items-center">
+                                                                   <User className="h-3 w-3 mr-1" />
+                                                                   {care['NGƯỜI CHĂM SÓC']}
+                                                               </span>
+                                                           )}
+                                                       </div>
+                                                   </div>
+                                                   <div className="flex flex-col items-end">
+                                                       <span className={`px-2 py-1 mb-2 text-xs font-semibold rounded-full ${getStatusColor(care['TRẠNG THÁI KH'])}`}>
+                                                           {care['TRẠNG THÁI KH'] || 'Đã lên kế hoạch'}
+                                                       </span>
+                                                       <div className="flex gap-2">
+                                                           <button 
+                                                               onClick={(e) => {
+                                                                   e.stopPropagation();
+                                                                   navigate(`/cskh?idCskh=${care['ID KH_CSKH']}`);
+                                                               }}
+                                                               className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                                                               title="Xem trang chi tiết"
+                                                           >
+                                                               <ExternalLink className="h-3 w-3" />
+                                                           </button>
+                                                           
+                                                       </div>
+                                                   </div>
+                                               </div>
+                                               
+                                               {care['NỘI DUNG TRAO ĐỔI'] && (
+                                                   <div className="mt-3 pl-11">
+                                                       <p className="text-sm text-gray-700 line-clamp-2">{care['NỘI DUNG TRAO ĐỔI']}</p>
+                                                   </div>
+                                               )}
+                                               
+                                               {care['ĐỊA ĐIỂM'] && (
+                                                   <div className="mt-2 pl-11 text-xs text-gray-500 flex items-center">
+                                                       <MapPin className="h-3 w-3 mr-1" />
+                                                       {care['ĐỊA ĐIỂM']}
+                                                   </div>
+                                               )}
+                                           </div>
+                                       ))}
+                                   </div>
+                               ) : (
+                                   <div className="bg-gray-50 p-6 rounded-lg text-center">
+                                       <p className="text-gray-500">
+                                           {careFilter === 'all' 
+                                               ? 'Chưa có lịch sử chăm sóc khách hàng nào' 
+                                               : careFilter === 'upcoming'
+                                                   ? 'Không có hoạt động chăm sóc nào sắp tới'
+                                                   : careFilter === 'completed'
+                                                       ? 'Không có hoạt động chăm sóc nào đã hoàn thành'
+                                                       : 'Không tìm thấy hoạt động chăm sóc nào'
+                                           }
+                                       </p>
+                                     
+                                   </div>
+                               )}
 
-                                            <div className="p-6">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                                    <div>
-                                                        <p className="text-sm text-gray-500 mb-1">ID chăm sóc</p>
-                                                        <p className="font-medium">{selectedCare['ID KH_CSKH']}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm text-gray-500 mb-1">Phân loại khách hàng</p>
-                                                        <p className="font-medium">{selectedCare['PHÂN LOẠI KH'] || '—'}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm text-gray-500 mb-1">Loại chăm sóc</p>
-                                                        <p className="font-medium">{selectedCare['LOẠI CHĂM SÓC'] || '—'}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm text-gray-500 mb-1">Hình thức</p>
-                                                        <p className="font-medium">{selectedCare['HÌNH THỨC'] || '—'}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm text-gray-500 mb-1">Địa điểm</p>
-                                                        <p className="font-medium">{selectedCare['ĐỊA ĐIỂM'] || '—'}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm text-gray-500 mb-1">Ngày dự kiến</p>
-                                                        <p className="font-medium">{formatDate(selectedCare['NGÀY DỰ KIẾN'])}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm text-gray-500 mb-1">Ngày thực hiện</p>
-                                                        <p className="font-medium">{formatDate(selectedCare['NGÀY CHĂM THỰC TẾ'])}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm text-gray-500 mb-1">Dự kiến hoàn thành</p>
-                                                        <p className="font-medium">{formatDate(selectedCare['DỰ KIẾN HOÀN THÀNH'])}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm text-gray-500 mb-1">Người chăm sóc</p>
-                                                        <p className="font-medium">{selectedCare['NGƯỜI CHĂM SÓC'] || '—'}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm text-gray-500 mb-1">Trạng thái</p>
-                                                        <p className={`inline-flex px-2 py-1 text-sm font-semibold rounded-full 
-                                                            ${selectedCare['TRẠNG THÁI KH'] === 'Đã hoàn thành'
-                                                                ? 'bg-green-100 text-green-800'
-                                                                : selectedCare['TRẠNG THÁI KH'] === 'Đang tiến hành'
-                                                                    ? 'bg-blue-100 text-blue-800'
-                                                                    : 'bg-yellow-100 text-yellow-800'
-                                                            }`}>
-                                                            {selectedCare['TRẠNG THÁI KH'] || 'Chưa thực hiện'}
-                                                        </p>
-                                                    </div>
-                                                </div>
+                               {/* Modal for care details */}
+                               {showCareDetail && selectedCare && (
+                                   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                                       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                                           <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
+                                               <h3 className="text-lg font-semibold text-gray-800">Chi tiết chăm sóc khách hàng</h3>
+                                               <button
+                                                   onClick={() => setShowCareDetail(false)}
+                                                   className="text-gray-400 hover:text-gray-500"
+                                               >
+                                                   <X className="w-5 h-5" />
+                                               </button>
+                                           </div>
 
-                                                <div className="mb-4">
-                                                    <p className="text-sm text-gray-500 mb-1">Dịch vụ quan tâm</p>
-                                                    <p className="font-medium bg-gray-50 p-3 rounded-lg">
-                                                        {selectedCare['DỊCH VỤ QUAN TÂM'] || '—'}
-                                                    </p>
-                                                </div>
+                                           <div className="p-6">
+                                               <div className="flex justify-between mb-6">
+                                                   <span className={`px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(selectedCare['TRẠNG THÁI KH'])}`}>
+                                                       {selectedCare['TRẠNG THÁI KH'] || 'Chưa thực hiện'}
+                                                   </span>
+                                                   <div className="flex gap-2">
+                                                       <button
+                                                           onClick={() => navigate(`/cskh?idCskh=${selectedCare['ID KH_CSKH']}`)}
+                                                           className="inline-flex items-center px-3 py-1 bg-amber-50 text-amber-700 rounded text-sm hover:bg-amber-100"
+                                                       >
+                                                           <Edit className="h-3 w-3 mr-1" />
+                                                           Chỉnh sửa
+                                                       </button>
+                                                      
+                                                   </div>
+                                               </div>
+                                               
+                                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                                   <div>
+                                                       <p className="text-sm text-gray-500 mb-1">ID chăm sóc</p>
+                                                       <p className="font-medium">{selectedCare['ID KH_CSKH']}</p>
+                                                   </div>
+                                                   <div>
+                                                       <p className="text-sm text-gray-500 mb-1">Phân loại khách hàng</p>
+                                                       <p className="font-medium">{selectedCare['PHÂN LOẠI KH'] || '—'}</p>
+                                                   </div>
+                                                   <div>
+                                                       <p className="text-sm text-gray-500 mb-1">Loại chăm sóc</p>
+                                                       <p className="font-medium">{selectedCare['LOẠI CHĂM SÓC'] || '—'}</p>
+                                                   </div>
+                                                   <div>
+                                                       <p className="text-sm text-gray-500 mb-1">Hình thức</p>
+                                                       <p className="font-medium">{selectedCare['HÌNH THỨC'] || '—'}</p>
+                                                   </div>
+                                                   <div>
+                                                       <p className="text-sm text-gray-500 mb-1">Địa điểm</p>
+                                                       <p className="font-medium">{selectedCare['ĐỊA ĐIỂM'] || '—'}</p>
+                                                   </div>
+                                                   <div>
+                                                       <p className="text-sm text-gray-500 mb-1">Ngày dự kiến</p>
+                                                       <p className="font-medium">{formatDate(selectedCare['NGÀY DỰ KIẾN'])}</p>
+                                                   </div>
+                                                   <div>
+                                                       <p className="text-sm text-gray-500 mb-1">Ngày thực hiện</p>
+                                                       <p className="font-medium">{formatDate(selectedCare['NGÀY CHĂM THỰC TẾ'])}</p>
+                                                   </div>
+                                                   <div>
+                                                       <p className="text-sm text-gray-500 mb-1">Dự kiến hoàn thành</p>
+                                                       <p className="font-medium">{formatDate(selectedCare['DỰ KIẾN HOÀN THÀNH'])}</p>
+                                                   </div>
+                                                   <div>
+                                                       <p className="text-sm text-gray-500 mb-1">Người chăm sóc</p>
+                                                       <p className="font-medium">{selectedCare['NGƯỜI CHĂM SÓC'] || '—'}</p>
+                                                   </div>
+                                               </div>
 
-                                                <div className="mb-4">
-                                                    <p className="text-sm text-gray-500 mb-1">Nội dung trao đổi</p>
-                                                    <div className="bg-gray-50 p-3 rounded-lg min-h-[100px]">
-                                                        <p className="whitespace-pre-wrap">{selectedCare['NỘI DUNG TRAO ĐỔI'] || '—'}</p>
-                                                    </div>
-                                                </div>
+                                               <div className="mb-4">
+                                                   <p className="text-sm text-gray-500 mb-1">Dịch vụ quan tâm</p>
+                                                   <p className="font-medium bg-gray-50 p-3 rounded-lg">
+                                                       {selectedCare['DỊCH VỤ QUAN TÂM'] || '—'}
+                                                   </p>
+                                               </div>
 
-                                                <div className="mb-4">
-                                                    <p className="text-sm text-gray-500 mb-1">Ghi chú nhu cầu</p>
-                                                    <div className="bg-gray-50 p-3 rounded-lg min-h-[100px]">
-                                                        <p className="whitespace-pre-wrap">{selectedCare['GHI CHÚ NHU CẦU'] || '—'}</p>
-                                                    </div>
-                                                </div>
+                                               <div className="mb-4">
+                                                   <p className="text-sm text-gray-500 mb-1">Nội dung trao đổi</p>
+                                                   <div className="bg-gray-50 p-3 rounded-lg min-h-[100px]">
+                                                       <p className="whitespace-pre-wrap">{selectedCare['NỘI DUNG TRAO ĐỔI'] || '—'}</p>
+                                                   </div>
+                                               </div>
 
-                                                {selectedCare['HÌNH ẢNH'] && (
-                                                    <div className="mb-4">
-                                                        <p className="text-sm text-gray-500 mb-1">Hình ảnh</p>
-                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                                                            {selectedCare['HÌNH ẢNH'].split(',').map((imageUrl, index) => (
-                                                                <div key={index} className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden">
-                                                                    <img
-                                                                        src={imageUrl.trim()}
-                                                                        alt={`Hình ảnh ${index + 1}`}
-                                                                        className="absolute inset-0 w-full h-full object-cover"
-                                                                        onError={(e) => {
-                                                                            e.target.onerror = null;
-                                                                            e.target.src = 'https://via.placeholder.com/300x200?text=Không+tải+được+ảnh';
-                                                                        }}
-                                                                    />
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
+                                               <div className="mb-4">
+                                                   <p className="text-sm text-gray-500 mb-1">Ghi chú nhu cầu</p>
+                                                   <div className="bg-gray-50 p-3 rounded-lg min-h-[100px]">
+                                                       <p className="whitespace-pre-wrap">{selectedCare['GHI CHÚ NHU CẦU'] || '—'}</p>
+                                                   </div>
+                                               </div>
 
-                                            <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
-                                                <button
-                                                    onClick={() => setShowCareDetail(false)}
-                                                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                                                >
-                                                    Đóng
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                                               {selectedCare['HÌNH ẢNH'] && (
+                                                   <div className="mb-4">
+                                                       <p className="text-sm text-gray-500 mb-1">Hình ảnh</p>
+                                                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
+                                                           {selectedCare['HÌNH ẢNH'].split(',').map((imageUrl, index) => (
+                                                               <div key={index} className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden">
+                                                                   <img
+                                                                       src={imageUrl.trim()}
+                                                                       alt={`Hình ảnh ${index + 1}`}
+                                                                       className="absolute inset-0 w-full h-full object-cover"
+                                                                       onError={(e) => {
+                                                                           e.target.onerror = null;
+                                                                           e.target.src = 'https://via.placeholder.com/300x200?text=Không+tải+được+ảnh';
+                                                                       }}
+                                                                   />
+                                                               </div>
+                                                           ))}
+                                                       </div>
+                                                   </div>
+                                               )}
+                                           </div>
 
+                                           <div className="px-6 py-4 border-t border-gray-200 flex justify-end sticky bottom-0 bg-white">
+                                               <button
+                                                   onClick={() => setShowCareDetail(false)}
+                                                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                                               >
+                                                   Đóng
+                                               </button>
+                                           </div>
+                                       </div>
+                                   </div>
+                               )}
+                           </div>
+                       )}
+
+                    
                         {/* Notes & History Tab */}
                         {activeTab === 'notes' && (
                             <div className="space-y-6">
