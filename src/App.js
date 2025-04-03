@@ -16,6 +16,7 @@ import KHTNMap from './pages/KHTNMap';
 import KHTNCalendar from './pages/KHTNCalendar';
 import CSKHManagement from './pages/CSKHManagement';
 import CSKHCalendar from './pages/CSKHCalendar';
+import TaskManagement from './pages/TaskManagement';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -48,6 +49,7 @@ function App() {
                   <Route path="/dmhh" element={<DMHHManagement />} />
                   <Route path="/khtn" element={<KHTNManagement />} />
                   <Route path="/baogiafrom" element={<BaoGiaFrom />} />
+                  <Route path="/task" element={<TaskManagement />} />
                   <Route path="/khtn/:idCty" element={<KHTNDetails />} />
                   <Route path="/khtn-map" element={<KHTNMap />} />
                   <Route path="/khtn-calendar" element={<KHTNCalendar />} />

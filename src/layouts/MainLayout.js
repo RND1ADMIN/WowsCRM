@@ -91,6 +91,7 @@ const MainLayout = ({ children }) => {
         { text: 'Quản lý khách hàng', icon: BookUser, path: '/khtn' },
         { text: 'Tạo báo giá', icon: Receipt, path: '/baogiafrom' },
         { text: 'CSKH', icon: NotebookPen, path: '/cskh-calendar' },
+        { text: 'Công việc', icon: ChartPie, path: '/task' },
 
 
 
