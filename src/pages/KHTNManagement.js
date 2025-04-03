@@ -1155,7 +1155,7 @@ const KHTNManagement = () => {
                         <table className="min-w-full divide-y divide-gray-200 table-fixed">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th scope="col"
+                                    <th scope="col" hidden
                                         className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer w-24"
                                         onClick={() => requestSort('ID_CTY')}>
                                         ID {getSortIcon('ID_CTY')}
@@ -1191,7 +1191,7 @@ const KHTNManagement = () => {
                                 {getCurrentPageItems().length > 0 ? (
                                     getCurrentPageItems().map((item) => (
                                         <tr key={item['ID_CTY']} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-4 py-4 text-sm font-medium text-gray-900 truncate">
+                                            <td hidden className="px-4 py-4 text-sm font-medium text-gray-900 truncate">
                                                 {item['ID_CTY']}
                                             </td>
                                             <td className="px-4 py-4 text-sm text-gray-500 text-center">

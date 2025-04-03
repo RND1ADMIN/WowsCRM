@@ -24,6 +24,28 @@ class AuthUtils {
             throw error;
         }
     }
+    async apiRequest_HIEU_XUAT(tableName, action, data, select = {}) {
+        try {
+            const response = await fetch(`${config.API_URL_HIEU_XUAT}/${tableName}/Action`, {
+                method: 'POST',
+                headers: {
+                    'ApplicationAccessKey': config.ACCESS_KEY_HIEU_XUAT,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    Action: action,
+                    
+                    select,
+                    ...data
+                })
+            });
+            if (!response.ok) throw new Error('Network response was not ok');
+            return await response.json();
+        } catch (error) {
+            console.error('API request failed:', error);
+            throw error;
+        }
+    }
     saveReturnUrl(url) {
         if (url && !url.includes('/login')) {
             localStorage.setItem('returnUrl', url);

@@ -48,3 +48,45 @@
     --ring: 212.7 26.8% 83.9%;
   }
 }
+
+/* Calendar customization */
+.fc .fc-button-primary {
+  background-color: #4F46E5;
+  border-color: #4F46E5;
+}
+
+.fc .fc-button-primary:hover {
+  background-color: #4338CA;
+  border-color: #4338CA;
+}
+
+.fc .fc-button-primary:disabled {
+  background-color: #6B7280;
+  border-color: #6B7280;
+}
+
+.fc-day-today {
+  background-color: #EEF2FF !important;
+}
+
+.fc-event {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 1px;
+  font-size: 12px;
+}
+
+.fc-toolbar-title {
+  font-size: 1.5em !important;
+}
+
+@media (max-width: 768px) {
+  .fc-toolbar {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .fc-toolbar-title {
+    font-size: 1.2em !important;
+  }
+}

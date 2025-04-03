@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-   LineChart, Line, BarChart, Bar, PieChart, Pie, XAxis, YAxis,
-   CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
-} from 'recharts';
+import ReactApexChart from 'react-apexcharts';
 import {
    Users, FileText, Briefcase, Calendar, TrendingUp, 
    Phone, MessageSquare, Loader2
@@ -12,8 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Button } from "../components/ui/button";
 import { DatePicker } from "../components/ui/datepicker";
 import authUtils from '../utils/authUtils';
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 const formatCurrency = (value) => {
    if (value >= 1e9) return (value / 1e9).toFixed(1) + ' tỷ';
@@ -140,6 +135,12 @@ const CRMDashboard = () => {
        customerStats: [],
        careTypeStats: [],
        quoteStats: {},
+   });
+   const [chartOptions, setChartOptions] = useState({
+       revenue: {},
+       customerTypes: {},
+       careTypes: {},
+       quoteDistribution: {}
    });
 
    const handleTimeFilterChange = (value) => {
@@ -302,6 +303,207 @@ const CRMDashboard = () => {
                careTypeStats,
                quoteStats
            });
+
+           // Configure ApexCharts options
+           // Revenue Chart
+           const revenueOptions = {
+               chart: {
+                   type: chartType,
+                   height: 350,
+                   toolbar: {
+                       show: false
+                   }
+               },
+               dataLabels: {
+                   enabled: false
+               },
+               stroke: {
+                   curve: 'smooth',
+                   width: 2
+               },
+               xaxis: {
+                   categories: revenueData.map(item => item.month),
+                   labels: {
+                       style: {
+                           fontFamily: 'Inter, sans-serif'
+                       }
+                   }
+               },
+               yaxis: {
+                   labels: {
+                       formatter: function(value) {
+                           return formatCurrency(value);
+                       },
+                       style: {
+                           fontFamily: 'Inter, sans-serif'
+                       }
+                   }
+               },
+               tooltip: {
+                   y: {
+                       formatter: function(value) {
+                           return formatCurrency(value);
+                       }
+                   }
+               },
+               colors: ['#0088FE'],
+               title: {
+                   text: 'Xu hướng doanh thu',
+                   align: 'left',
+                   style: {
+                       fontSize: '16px',
+                       fontWeight: 'bold',
+                       fontFamily: 'Inter, sans-serif'
+                   }
+               }
+           };
+
+           // Customer Types Pie Chart
+           const customerTypesOptions = {
+               chart: {
+                   type: 'pie',
+                   height: 350
+               },
+               labels: customerStats.map(item => item.type),
+               colors: ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'],
+               legend: {
+                   position: 'bottom',
+                   fontFamily: 'Inter, sans-serif'
+               },
+               dataLabels: {
+                   enabled: true,
+                   formatter: function (val, opts) {
+                       return opts.w.config.labels[opts.seriesIndex] + ': ' + opts.w.globals.series[opts.seriesIndex];
+                   },
+                   style: {
+                       fontFamily: 'Inter, sans-serif'
+                   }
+               },
+               title: {
+                   text: 'Phân loại khách hàng',
+                   align: 'left',
+                   style: {
+                       fontSize: '16px',
+                       fontWeight: 'bold',
+                       fontFamily: 'Inter, sans-serif'
+                   }
+               },
+               responsive: [{
+                   breakpoint: 480,
+                   options: {
+                       chart: {
+                           width: 300
+                       },
+                       legend: {
+                           position: 'bottom'
+                       }
+                   }
+               }]
+           };
+
+           // Care Types Bar Chart
+           const careTypesOptions = {
+               chart: {
+                   type: 'bar',
+                   height: 350,
+                   toolbar: {
+                       show: false
+                   }
+               },
+               plotOptions: {
+                   bar: {
+                       borderRadius: 4,
+                       horizontal: false,
+                   }
+               },
+               dataLabels: {
+                   enabled: false
+               },
+               stroke: {
+                   show: true,
+                   width: 2,
+                   colors: ['transparent']
+               },
+               xaxis: {
+                   categories: careTypeStats.map(item => item.type),
+                   labels: {
+                       style: {
+                           fontFamily: 'Inter, sans-serif'
+                       }
+                   }
+               },
+               yaxis: {
+                   title: {
+                       text: 'Số lượng',
+                       style: {
+                           fontFamily: 'Inter, sans-serif'
+                       }
+                   },
+                   labels: {
+                       style: {
+                           fontFamily: 'Inter, sans-serif'
+                       }
+                   }
+               },
+               fill: {
+                   opacity: 1,
+                   colors: ['#00C49F']
+               },
+               tooltip: {
+                   y: {
+                       formatter: function (val) {
+                           return val + " lượt";
+                       }
+                   }
+               },
+               title: {
+                   text: 'Loại hình chăm sóc khách hàng',
+                   align: 'left',
+                   style: {
+                       fontSize: '16px',
+                       fontWeight: 'bold',
+                       fontFamily: 'Inter, sans-serif'
+                   }
+               }
+           };
+
+           // Quote Distribution Pie Chart
+           const quoteDistributionOptions = {
+               chart: {
+                   type: 'donut',
+                   height: 160
+               },
+               labels: ['Chấp nhận', 'Từ chối/Chờ'],
+               colors: ['#4CAF50', '#F44336'],
+               legend: {
+                   position: 'bottom',
+                   fontFamily: 'Inter, sans-serif'
+               },
+               dataLabels: {
+                   enabled: true,
+                   style: {
+                       fontFamily: 'Inter, sans-serif'
+                   }
+               },
+               responsive: [{
+                   breakpoint: 480,
+                   options: {
+                       chart: {
+                           width: 200
+                       },
+                       legend: {
+                           position: 'bottom'
+                       }
+                   }
+               }]
+           };
+
+           setChartOptions({
+               revenue: revenueOptions,
+               customerTypes: customerTypesOptions,
+               careTypes: careTypesOptions,
+               quoteDistribution: quoteDistributionOptions
+           });
        } catch (error) {
            console.error('Error processing data:', error);
        } finally {
@@ -462,32 +664,15 @@ const CRMDashboard = () => {
                                </CardHeader>
                                <CardContent>
                                    <div className="h-72">
-                                       <ResponsiveContainer width="100%" height="100%">
-                                           {chartType === 'line' ? (
-                                               <LineChart data={analyticsData.revenueData}>
-                                                   <CartesianGrid strokeDasharray="3 3" />
-                                                   <XAxis dataKey="month" />
-                                                   <YAxis tickFormatter={formatCurrency} />
-                                                   <Tooltip formatter={(value) => formatCurrency(value)} />
-                                                   <Legend />
-                                                   <Line
-                                                       type="monotone"
-                                                       dataKey="revenue"
-                                                       stroke="#0088FE"
-                                                       name="Doanh thu"
-                                                   />
-                                               </LineChart>
-                                           ) : (
-                                               <BarChart data={analyticsData.revenueData}>
-                                                   <CartesianGrid strokeDasharray="3 3" />
-                                                   <XAxis dataKey="month" />
-                                                   <YAxis tickFormatter={formatCurrency} />
-                                                   <Tooltip formatter={(value) => formatCurrency(value)} />
-                                                   <Legend />
-                                                   <Bar dataKey="revenue" fill="#0088FE" name="Doanh thu" />
-                                               </BarChart>
-                                           )}
-                                       </ResponsiveContainer>
+                                       <ReactApexChart 
+                                           options={chartOptions.revenue}
+                                           series={[{
+                                               name: 'Doanh thu',
+                                               data: analyticsData.revenueData.map(item => item.revenue)
+                                           }]}
+                                           type={chartType}
+                                           height={350}
+                                       />
                                    </div>
                                </CardContent>
                            </Card>
@@ -500,28 +685,12 @@ const CRMDashboard = () => {
                                </CardHeader>
                                <CardContent>
                                    <div className="h-72">
-                                       <ResponsiveContainer width="100%" height="100%">
-                                           <PieChart>
-                                               <Pie
-                                                   data={analyticsData.customerStats}
-                                                   dataKey="count"
-                                                   nameKey="type"
-                                                   cx="50%"
-                                                   cy="50%"
-                                                   outerRadius={80}
-                                                   label={({ type, count }) => `${type}: ${count}`}
-                                               >
-                                                   {analyticsData.customerStats.map((entry, index) => (
-                                                       <Cell
-                                                           key={`cell-${index}`}
-                                                           fill={COLORS[index % COLORS.length]}
-                                                       />
-                                                   ))}
-                                               </Pie>
-                                               <Tooltip />
-                                               <Legend />
-                                           </PieChart>
-                                       </ResponsiveContainer>
+                                       <ReactApexChart 
+                                           options={chartOptions.customerTypes}
+                                           series={analyticsData.customerStats.map(item => item.count)}
+                                           type="pie"
+                                           height={350}
+                                       />
                                    </div>
                                </CardContent>
                            </Card>
@@ -545,16 +714,15 @@ const CRMDashboard = () => {
                                </CardHeader>
                                <CardContent>
                                    <div className="h-72">
-                                       <ResponsiveContainer width="100%" height="100%">
-                                           <BarChart data={analyticsData.careTypeStats}>
-                                               <CartesianGrid strokeDasharray="3 3" />
-                                               <XAxis dataKey="type" />
-                                               <YAxis />
-                                               <Tooltip />
-                                               <Legend />
-                                               <Bar dataKey="count" fill="#00C49F" name="Số lượng" />
-                                           </BarChart>
-                                       </ResponsiveContainer>
+                                       <ReactApexChart 
+                                           options={chartOptions.careTypes}
+                                           series={[{
+                                               name: 'Số lượng',
+                                               data: analyticsData.careTypeStats.map(item => item.count)
+                                           }]}
+                                           type="bar"
+                                           height={350}
+                                       />
                                    </div>
                                </CardContent>
                            </Card>
@@ -594,27 +762,15 @@ const CRMDashboard = () => {
                                    </div>
                                    
                                    <div className="h-40">
-                                       <ResponsiveContainer width="100%" height="100%">
-                                           <PieChart>
-                                               <Pie
-                                                   data={[
-                                                       { name: 'Chấp nhận', value: analyticsData.quoteStats.accepted },
-                                                       { name: 'Từ chối/Chờ', value: analyticsData.quoteStats.total - analyticsData.quoteStats.accepted }
-                                                   ]}
-                                                   dataKey="value"
-                                                   nameKey="name"
-                                                   cx="50%"
-                                                   cy="50%"
-                                                   outerRadius={60}
-                                                   label
-                                               >
-                                                   <Cell fill="#4CAF50" />
-                                                   <Cell fill="#F44336" />
-                                               </Pie>
-                                               <Tooltip />
-                                               <Legend />
-                                           </PieChart>
-                                       </ResponsiveContainer>
+                                       <ReactApexChart 
+                                           options={chartOptions.quoteDistribution}
+                                           series={[
+                                               analyticsData.quoteStats.accepted,
+                                               analyticsData.quoteStats.total - analyticsData.quoteStats.accepted
+                                           ]}
+                                           type="donut"
+                                           height={160}
+                                       />
                                    </div>
                                </CardContent>
                            </Card>
@@ -636,6 +792,16 @@ const CRMDashboard = () => {
                                </p>
                                <p className="text-xl font-bold mt-1">
                                    {stats?.appointments || 0}
+                               </p>
+                           </div>
+                           <div className="bg-green-50 p-4 rounded-lg">
+                               <p className="text-sm text-green-600 font-medium">
+                                   Tỷ lệ thành công
+                               </p>
+                               <p className="text-xl font-bold mt-1">
+                                   {allData ? 
+                                       ((allData.appointments.filter(a => a.status === 'Completed').length / 
+                                         allData.appointments.length) * 100).toFixed(1) + '%' : '0%'}
                                </p>
                            </div>
                            <div className="bg-green-50 p-4 rounded-lg">

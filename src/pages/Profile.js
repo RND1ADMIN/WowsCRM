@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Pencil, Save,  X, KeyRound, Shield, Camera } from 'lucide-react';
+import { Pencil, Save, X, KeyRound, Shield, Camera } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
 
 const getImageUrl = (imagePath) => {
     if (!imagePath) return '';
-    
+
     // Trường hợp 1: Nếu là URL đầy đủ hoặc base64
     if (imagePath.startsWith('http') || imagePath.startsWith('data:')) {
         return imagePath;
     }
-    
+
     // Trường hợp 2: Nếu là đường dẫn dạng DSNV_Images/...
     if (imagePath.startsWith('DSNV_Images/')) {
-        const appName = encodeURIComponent('Quảnlýquáncafe-668554821');
+        const appName = encodeURIComponent('WOWSCRMv2-925719472');
         const tableName = encodeURIComponent('DSNV');
         const fileName = encodeURIComponent(imagePath);
         return `https://www.appsheet.com/template/gettablefileurl?appName=${appName}&tableName=${tableName}&fileName=${fileName}`;
     }
-    
+
     // Nếu là dạng khác, trả về đường dẫn gốc
     return imagePath;
 };
@@ -28,7 +28,7 @@ const Profile = () => {
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(false);
     const [changePassword, setChangePassword] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false); 
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [isChangingPassword, setIsChangingPassword] = useState(false);
     const [userData, setUserData] = useState(null);
     const [imageFile, setImageFile] = useState(null);
@@ -53,13 +53,13 @@ const Profile = () => {
                     toast.error('Phiên đăng nhập đã hết hạn');
                     return;
                 }
-                
+
                 const response = await authUtils.apiRequest('DSNV', 'Find', {
                     Properties: {
                         Selector: `Filter(DSNV, [username] = "${localUser.username}")`
                     }
                 });
-                
+
                 const user = response[0];
                 if (!user) {
                     throw new Error('Không tìm thấy thông tin người dùng');
@@ -83,21 +83,21 @@ const Profile = () => {
 
         fetchUserData();
     }, []);
-    
+
     const handleImageChange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        
+
         // Validate file size
         if (file.size > 5000000) {
             toast.error('Kích thước ảnh không được vượt quá 5MB');
             return;
         }
-        
+
         try {
             // Store the file for later upload
             setImageFile(file);
-            
+
             // Create preview
             const reader = new FileReader();
             reader.onloadend = () => {
@@ -112,7 +112,7 @@ const Profile = () => {
             toast.error('Không thể đọc file ảnh');
         }
     };
-    
+
     const handleInputChange = (e) => {
         setFormData({
             ...formData,
@@ -132,7 +132,7 @@ const Profile = () => {
 
         try {
             setIsSubmitting(true);
-            
+
             // Handle image upload if there's a new image
             let imageUrl = formData['Image'];
             if (imageFile) {
@@ -149,13 +149,13 @@ const Profile = () => {
                     toast.error('Không thể tải ảnh lên, nhưng vẫn tiếp tục lưu thông tin khác');
                 }
             }
-            
+
             const updatedData = {
                 ...userData,
                 ...formData,
                 'Image': imageUrl
             };
-            
+
             await authUtils.apiRequest('DSNV', 'Edit', {
                 Rows: [updatedData]
             });
@@ -165,7 +165,7 @@ const Profile = () => {
             toast.success('Cập nhật thông tin thành công');
             setEditing(false);
             setImageFile(null);
-            
+
             // Update userData to reflect changes
             setUserData(updatedData);
         } catch (error) {
@@ -178,13 +178,13 @@ const Profile = () => {
 
     const handlePasswordSubmit = async () => {
         if (isChangingPassword) return;
-        
+
         // Validation
         if (!passwordData.currentPassword) {
             toast.error('Vui lòng nhập mật khẩu hiện tại');
             return;
         }
-        
+
         if (!passwordData.newPassword) {
             toast.error('Vui lòng nhập mật khẩu mới');
             return;
@@ -194,7 +194,7 @@ const Profile = () => {
             toast.error('Mật khẩu mới không khớp');
             return;
         }
-        
+
         // Verify current password
         if (passwordData.currentPassword !== userData.password) {
             toast.error('Mật khẩu hiện tại không đúng');
@@ -203,19 +203,19 @@ const Profile = () => {
 
         try {
             setIsChangingPassword(true);
-            
+
             const updatedUser = {
                 ...userData,
                 password: passwordData.newPassword
             };
-            
+
             await authUtils.apiRequest('DSNV', 'Edit', {
                 Rows: [updatedUser]
             });
-            
+
             // Update local storage
             authUtils.saveAuthData(updatedUser);
-            
+
             // Update state
             setUserData(updatedUser);
 
@@ -256,9 +256,9 @@ const Profile = () => {
                             <div className="flex flex-col items-center">
                                 <div className="relative group">
                                     {formData['Image'] ? (
-                                        <img 
+                                        <img
                                             src={formData['Image'] instanceof File ? URL.createObjectURL(formData['Image']) : getImageUrl(formData['Image'])}
-                                            alt="Profile" 
+                                            alt="Profile"
                                             className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-md"
                                             onError={(e) => {
                                                 e.target.onerror = null;
@@ -295,7 +295,7 @@ const Profile = () => {
                                 <p className="text-gray-500 mt-1">
                                     {formData['Chức vụ']}
                                 </p>
-                                
+
                                 <div className="mt-4 flex gap-2">
                                     <button
                                         onClick={() => setChangePassword(true)}
@@ -306,7 +306,7 @@ const Profile = () => {
                                         Đổi mật khẩu
                                     </button>
                                 </div>
-                                
+
                                 {userData?.['Phân quyền'] === 'Admin' && (
                                     <div className="mt-4 flex items-center bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full">
                                         <Shield className="w-4 h-4 mr-1.5" />
@@ -326,8 +326,8 @@ const Profile = () => {
                                     onClick={() => editing ? handleSubmit() : setEditing(true)}
                                     disabled={isSubmitting}
                                     className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${editing
-                                            ? 'bg-green-500 hover:bg-green-600 text-white'
-                                            : 'bg-blue-500 hover:bg-blue-600 text-white'
+                                        ? 'bg-green-500 hover:bg-green-600 text-white'
+                                        : 'bg-blue-500 hover:bg-blue-600 text-white'
                                         } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     {editing ? (
@@ -406,7 +406,7 @@ const Profile = () => {
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-gray-50"
                                     />
                                 </div>
-                                
+
                                 <div className="sm:col-span-2 mt-2">
                                     <div className="text-sm text-gray-500">
                                         Tên đăng nhập: <span className="font-medium text-gray-700">{userData?.username}</span>

@@ -5,8 +5,13 @@ const config = {
     IMGBB_API_KEY: process.env.REACT_APP_IMGBB_API_KEY,
     CLOUD_NAME : process.env.CLOUD_NAME,
     CLOUD_NAME : process.env.UPLOAD_PRESET,
+    APP_ID_HIEU_XUAT: process.env.REACT_APP_APP_ID_HIEU_XUAT ,
+    ACCESS_KEY_HIEU_XUAT: process.env.REACT_APP_ACCESS_KEY_HIEU_XUAT,
     get API_URL() {
         return `https://${this.REGION}.appsheet.com/api/v2/apps/${this.APP_ID}/tables`;
+    },
+    get API_URL_HIEU_XUAT() {
+        return `https://${this.REGION}.appsheet.com/api/v2/apps/${this.APP_ID_HIEU_XUAT}/tables`;
     },
     
     ROUTES: {

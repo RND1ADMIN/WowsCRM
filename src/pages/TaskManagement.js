@@ -8,6 +8,12 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
 import Select from 'react-select';
+// Import FullCalendar components
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
+
 
 const TaskManagement = () => {
     // State Management
@@ -48,7 +54,7 @@ const TaskManagement = () => {
     const [isAdmin, setIsAdmin] = useState(false);
     const [departments, setDepartments] = useState([]);
     const fileInputRef = useRef(null);
-
+    const calendarRef = useRef(null);
     // New states for progress reporting
     const [showReportModal, setShowReportModal] = useState(false);
     const [taskToReport, setTaskToReport] = useState(null);
@@ -92,7 +98,23 @@ const TaskManagement = () => {
             toast.error('Lỗi khi tải danh sách công việc');
         }
     };
+    const handleDateClick = (arg) => {
+        // Pre-fill the task form with the selected date
+        const selectedDate = arg.dateStr;
+        handleOpenModal({
+            ...currentTask,
+            'Ngày dự kiến bắt đầu': selectedDate,
+            'Ngày mong muốn hoàn thành': new Date(new Date(selectedDate).setDate(new Date(selectedDate).getDate() + 7)).toISOString().split('T')[0]
+        });
+    };
 
+    const handleEventClick = (arg) => {
+        const taskId = arg.event.id;
+        const selectedTask = tasks.find(task => task.IDCV === taskId);
+        if (selectedTask) {
+            handleOpenModal(selectedTask);
+        }
+    };
     const fetchEmployees = async () => {
         try {
             const response = await authUtils.apiRequest('DSNV', 'Find', {});
@@ -107,7 +129,159 @@ const TaskManagement = () => {
             setDepartments([]);
         }
     };
+    const getCalendarEvents = () => {
+        return tasks.map(task => {
+            // Determine colors based on priority
+            let backgroundColor, borderColor;
+            switch(task['Mức độ ưu tiên']) {
+                case 'Cao':
+                    backgroundColor = '#FEE2E2'; // Light red background
+                    borderColor = '#DC2626'; // Red border
+                    break;
+                case 'Trung bình':
+                    backgroundColor = '#FEF3C7'; // Light orange background
+                    borderColor = '#F59E0B'; // Orange border
+                    break;
+                case 'Thấp':
+                    backgroundColor = '#D1FAE5'; // Light green background
+                    borderColor = '#10B981'; // Green border
+                    break;
+                default:
+                    backgroundColor = '#E5E7EB'; // Light gray background
+                    borderColor = '#6B7280'; // Gray border
+            }
 
+            // Determine text color based on status
+            let textColor;
+            switch(task['Tình trạng']) {
+                case 'Hoàn thành':
+                    textColor = '#10B981'; // Green text
+                    break;
+                case 'Tạm dừng':
+                    textColor = '#F59E0B'; // Orange text
+                    break;
+                case 'Hủy bỏ':
+                    textColor = '#DC2626'; // Red text
+                    break;
+                default:
+                    textColor = '#1F2937'; // Default text color
+            }
+
+            // Format the event
+            return {
+                id: task.IDCV,
+                title: task['Công việc'],
+                start: task['Ngày dự kiến bắt đầu'] || null,
+                end: task['Ngày mong muốn hoàn thành'] || null,
+                backgroundColor: backgroundColor,
+                borderColor: borderColor,
+                textColor: textColor,
+                extendedProps: {
+                    department: task['Phòng ban phụ trách'],
+                    assignees: formatAssignees(task['Nhân viên phụ trách']),
+                    priority: task['Mức độ ưu tiên'],
+                    progress: task['Tiến độ hoàn thành'],
+                    status: task['Tình trạng'],
+                    project: task['Dự án'] || 'N/A',
+                }
+            };
+        }).filter(event => event.start && event.end); // Only include events with valid dates
+    };
+    const renderViewSwitcher = () => (
+        <div className="mb-6">
+            <div className="border border-gray-200 rounded-lg inline-flex overflow-hidden">
+                <button
+                    onClick={() => setViewMode('kanban')}
+                    className={`px-4 py-2 flex items-center gap-2 ${viewMode === 'kanban'
+                        ? 'bg-indigo-50 text-indigo-700 font-medium'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                >
+                    <Trello className="w-4 h-4" />
+                    Kanban
+                </button>
+                <button 
+                    onClick={() => setViewMode('list')}
+                    className={`px-4 py-2 flex items-center gap-2 border-l border-gray-200 ${viewMode === 'list'
+                        ? 'bg-indigo-50 text-indigo-700 font-medium'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                >
+                    <List className="w-4 h-4" />
+                    Danh sách
+                </button>
+                <button 
+                    onClick={() => setViewMode('calendar')}
+                    className={`px-4 py-2 flex items-center gap-2 border-l border-gray-200 ${viewMode === 'calendar'
+                        ? 'bg-indigo-50 text-indigo-700 font-medium'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                >
+                    <CalendarIcon className="w-4 h-4" />
+                    Lịch
+                </button>
+            </div>
+        </div>
+    );
+     // Render the Calendar View
+     const renderCalendarView = () => (
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <FullCalendar
+                ref={calendarRef}
+                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                initialView="dayGridMonth"
+                headerToolbar={{
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                }}
+                events={getCalendarEvents()}
+                dateClick={handleDateClick}
+                eventClick={handleEventClick}
+                editable={true}
+                selectable={true}
+                selectMirror={true}
+                dayMaxEvents={true}
+                locale="vi"
+                buttonText={{
+                    today: 'Hôm nay',
+                    month: 'Tháng',
+                    week: 'Tuần',
+                    day: 'Ngày',
+                }}
+                eventContent={(eventInfo) => (
+                    <div className="p-1">
+                        <div className="font-medium text-xs md:text-sm truncate">{eventInfo.event.title}</div>
+                        {eventInfo.view.type !== 'dayGridMonth' && (
+                            <div className="text-xs truncate">
+                                {eventInfo.event.extendedProps.project}
+                            </div>
+                        )}
+                        {eventInfo.view.type === 'timeGridWeek' || eventInfo.view.type === 'timeGridDay' ? (
+                            <>
+                                <div className="text-xs mt-1 flex items-center gap-1">
+                                    <span className="font-medium">Trạng thái:</span> {eventInfo.event.extendedProps.status}
+                                </div>
+                                <div className="text-xs flex items-center gap-1">
+                                    <span className="font-medium">Tiến độ:</span> {eventInfo.event.extendedProps.progress}%
+                                </div>
+                                <div className="text-xs flex items-center gap-1">
+                                    <span className="font-medium">Phụ trách:</span> {eventInfo.event.extendedProps.assignees}
+                                </div>
+                            </>
+                        ) : null}
+                    </div>
+                )}
+                eventTimeFormat={{
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    meridiem: false,
+                    hour12: false
+                }}
+                allDayText="Cả ngày"
+                height="auto"
+                aspectRatio={1.8}
+                contentHeight={800}
+            />
+        </div>
+    );
     // Format date for display
     const formatDate = (dateString) => {
         if (!dateString) return '';
@@ -681,28 +855,7 @@ const TaskManagement = () => {
                     </div>
 
                     {/* View Switcher */}
-                    <div className="mb-6">
-                        <div className="border border-gray-200 rounded-lg inline-flex overflow-hidden">
-                            <button
-                                onClick={() => setViewMode('kanban')}
-                                className={`px-4 py-2 flex items-center gap-2 ${viewMode === 'kanban'
-                                    ? 'bg-indigo-50 text-indigo-700 font-medium'
-                                    : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                            >
-                                <Trello className="w-4 h-4" />
-                                Kanban
-                            </button>
-                            <button onClick={() => setViewMode('list')}
-                                className={`px-4 py-2 flex items-center gap-2 border-l border-gray-200 ${viewMode === 'list'
-                                    ? 'bg-indigo-50 text-indigo-700 font-medium'
-                                    : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                            >
-                                <List className="w-4 h-4" />
-                                Danh sách
-                            </button>
-                        </div>
-                    </div>
-
+                    {renderViewSwitcher()}
                     {/* Search and Filter Section */}
                     <div className="mb-6 space-y-4">
                         <div className="relative">
@@ -831,7 +984,8 @@ const TaskManagement = () => {
                             </p>
                         </div>
                     </div>
-
+                                  {/* Calendar View */}
+                    {viewMode === 'calendar' && renderCalendarView()}
                     {/* Kanban View */}
                     {viewMode === 'kanban' && (
                         <div className="flex space-x-5 overflow-x-auto pb-6 pt-2">
