@@ -593,7 +593,7 @@ const FinancialPlanningView = () => {
                                                 </button>
                                                 <button
                                                     className={`tab-button bg-white inline-block p-4 text-blue-600 hover:text-blue-800 font-medium ${detailActiveTab === 'nguon' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'
-                                                    }`}
+                                                        }`}
                                                     onClick={() => setDetailActiveTab('nguon')}
                                                 >
                                                     Phân bổ theo nguồn
@@ -662,7 +662,7 @@ const FinancialPlanningView = () => {
                                                                         </td>
                                                                     </tr>
                                                                 ))}
-                                                                
+
                                                                 {/* Total row */}
                                                                 <tr className="bg-gray-50 font-medium">
                                                                     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -732,7 +732,7 @@ const FinancialPlanningView = () => {
                                                 {/* Chi tiết theo tháng (phần trăm) */}
                                                 <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
                                                     <h4 className="font-medium text-gray-800 mb-4">Phân bổ phần trăm theo tháng</h4>
-                                                    
+
                                                     <div className="overflow-x-auto">
                                                         <table className="min-w-full divide-y divide-gray-200">
                                                             <thead className="bg-gray-50">
@@ -779,7 +779,7 @@ const FinancialPlanningView = () => {
                                                 {/* Chi tiết theo tháng (số tiền) */}
                                                 <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
                                                     <h4 className="font-medium text-gray-800 mb-4">Phân bổ số tiền theo tháng</h4>
-                                                    
+
                                                     <div className="overflow-x-auto">
                                                         <table className="min-w-full divide-y divide-gray-200">
                                                             <thead className="bg-gray-50">
@@ -805,7 +805,7 @@ const FinancialPlanningView = () => {
                                                                         ))}
                                                                     </tr>
                                                                 ))}
-                                                                
+
                                                                 {/* Total row */}
                                                                 <tr className="bg-gray-50 font-medium">
                                                                     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -886,7 +886,7 @@ const FinancialPlanningView = () => {
                                                                         </td>
                                                                     </tr>
                                                                 ))}
-                                                                
+
                                                                 {/* Total row */}
                                                                 <tr className="bg-gray-50 font-medium">
                                                                     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -956,7 +956,7 @@ const FinancialPlanningView = () => {
                                                 {/* Chi tiết theo tháng (phần trăm) */}
                                                 <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
                                                     <h4 className="font-medium text-gray-800 mb-4">Phân bổ phần trăm theo tháng</h4>
-                                                    
+
                                                     <div className="overflow-x-auto">
                                                         <table className="min-w-full divide-y divide-gray-200">
                                                             <thead className="bg-gray-50">
@@ -989,365 +989,365 @@ const FinancialPlanningView = () => {
                                                                     </td>
                                                                     {[...Array(12)].map((_, i) => (
                                                                         <td key={i} className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                                                        {(getFilteredDetailData('nhân viên')
-                                                                            .reduce((sum, item) => sum + (item[`%Tháng ${i + 1}`] || 0), 0) * 100)
-                                                                            .toFixed(2)}%
-                                                                    </td>
-                                                                ))}
-                                                            </tr>
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-
-                                            {/* Chi tiết theo tháng (số tiền) */}
-                                            <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
-                                                <h4 className="font-medium text-gray-800 mb-4">Phân bổ số tiền theo tháng</h4>
-                                                
-                                                <div className="overflow-x-auto">
-                                                    <table className="min-w-full divide-y divide-gray-200">
-                                                        <thead className="bg-gray-50">
-                                                            <tr>
-                                                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chi tiết</th>
-                                                                {[...Array(12)].map((_, i) => (
-                                                                    <th key={i} className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                                        Tháng {i + 1}
-                                                                    </th>
-                                                                ))}
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="bg-white divide-y divide-gray-200">
-                                                            {getFilteredDetailData('nhân viên').map((item, index) => (
-                                                                <tr key={index} className="hover:bg-gray-50">
-                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                                        {item['Chi Tiết']}
-                                                                    </td>
-                                                                    {[...Array(12)].map((_, i) => (
-                                                                        <td key={i} className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
-                                                                            {formatCurrency(item[`Số tiền tháng ${i + 1}`] || 0)}
+                                                                            {(getFilteredDetailData('nhân viên')
+                                                                                .reduce((sum, item) => sum + (item[`%Tháng ${i + 1}`] || 0), 0) * 100)
+                                                                                .toFixed(2)}%
                                                                         </td>
                                                                     ))}
                                                                 </tr>
-                                                            ))}
-                                                            
-                                                            {/* Total row */}
-                                                            <tr className="bg-gray-50 font-medium">
-                                                                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                                    Tổng cộng
-                                                                </td>
-                                                                {[...Array(12)].map((_, i) => (
-                                                                    <td key={i} className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                                                        {formatCurrency(
-                                                                            getFilteredDetailData('nhân viên')
-                                                                                .reduce((sum, item) => sum + (item[`Số tiền tháng ${i + 1}`] || 0), 0)
-                                                                        )}
-                                                                    </td>
-                                                                ))}
-                                                            </tr>
-                                                        </tbody>
-                                                    </table>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </div>
 
-                                        {/* Tab Content - NGUỒN */}
-                                        <div className={detailActiveTab === 'nguon' ? 'block' : 'hidden'}>
-                                            {/* Tổng quan theo năm và quý */}
-                                            <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-                                                <h4 className="font-medium text-gray-800 mb-4">Tổng quan phân bổ theo nguồn</h4>
-                                                <div className="overflow-x-auto">
-                                                    <table className="min-w-full divide-y divide-gray-200">
-                                                        <thead className="bg-gray-50">
-                                                            <tr>
-                                                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chi tiết</th>
-                                                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">%Năm</th>
-                                                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Số tiền năm</th>
-                                                                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">%Quý 1</th>
-                                                                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">%Quý 2</th>
-                                                                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">%Quý 3</th>
-                                                                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">%Quý 4</th>
-                                                                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Số tiền Q1</th>
-                                                                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Số tiền Q2</th>
-                                                                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Số tiền Q3</th>
-                                                                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Số tiền Q4</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="bg-white divide-y divide-gray-200">
-                                                            {getFilteredDetailData('nguồn').map((item, index) => (
-                                                                <tr key={index} className="hover:bg-gray-50">
-                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                                        {item['Chi Tiết']}
-                                                                    </td>
-                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                                        {((item['%Năm'] || 0) * 100).toFixed(2)}%
-                                                                    </td>
-                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                                        {formatCurrency(item['Số tiền năm'] || 0)}
-                                                                    </td>
-                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
-                                                                        {((item['%Quý 1'] || 0) * 100).toFixed(2)}%
-                                                                    </td>
-                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
-                                                                        {((item['%Quý 2'] || 0) * 100).toFixed(2)}%
-                                                                    </td>
-                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
-                                                                        {((item['%Quý 3'] || 0) * 100).toFixed(2)}%
-                                                                    </td>
-                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
-                                                                        {((item['%Quý 4'] || 0) * 100).toFixed(2)}%
-                                                                    </td>
-                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
-                                                                        {formatCurrency(item['Số tiền quý 1'] || 0)}
-                                                                    </td>
-                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
-                                                                        {formatCurrency(item['Số tiền quý 2'] || 0)}
-                                                                    </td>
-                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
-                                                                        {formatCurrency(item['Số tiền quý 3'] || 0)}
-                                                                    </td>
-                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
-                                                                        {formatCurrency(item['Số tiền quý 4'] || 0)}
-                                                                    </td>
+                                                {/* Chi tiết theo tháng (số tiền) */}
+                                                <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
+                                                    <h4 className="font-medium text-gray-800 mb-4">Phân bổ số tiền theo tháng</h4>
+
+                                                    <div className="overflow-x-auto">
+                                                        <table className="min-w-full divide-y divide-gray-200">
+                                                            <thead className="bg-gray-50">
+                                                                <tr>
+                                                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chi tiết</th>
+                                                                    {[...Array(12)].map((_, i) => (
+                                                                        <th key={i} className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                            Tháng {i + 1}
+                                                                        </th>
+                                                                    ))}
                                                                 </tr>
-                                                            ))}
-                                                            
-                                                            {/* Total row */}
-                                                            <tr className="bg-gray-50 font-medium">
-                                                                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                                    Tổng cộng
-                                                                </td>
-                                                                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                                    {(getFilteredDetailData('nguồn')
-                                                                        .reduce((sum, item) => sum + (item['%Năm'] || 0), 0) * 100)
-                                                                        .toFixed(2)}%
-                                                                </td>
-                                                                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                                    {formatCurrency(
-                                                                        getFilteredDetailData('nguồn')
-                                                                            .reduce((sum, item) => sum + (item['Số tiền năm'] || 0), 0)
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                                                    {(getFilteredDetailData('nguồn')
-                                                                        .reduce((sum, item) => sum + (item['%Quý 1'] || 0), 0) * 100)
-                                                                        .toFixed(2)}%
-                                                                </td>
-                                                                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                                                    {(getFilteredDetailData('nguồn')
-                                                                        .reduce((sum, item) => sum + (item['%Quý 2'] || 0), 0) * 100)
-                                                                        .toFixed(2)}%
-                                                                </td>
-                                                                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                                                    {(getFilteredDetailData('nguồn')
-                                                                        .reduce((sum, item) => sum + (item['%Quý 3'] || 0), 0) * 100)
-                                                                        .toFixed(2)}%
-                                                                </td>
-                                                                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                                                    {(getFilteredDetailData('nguồn')
-                                                                        .reduce((sum, item) => sum + (item['%Quý 4'] || 0), 0) * 100)
-                                                                        .toFixed(2)}%
-                                                                </td>
-                                                                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                                                    {formatCurrency(
-                                                                        getFilteredDetailData('nguồn')
-                                                                            .reduce((sum, item) => sum + (item['Số tiền quý 1'] || 0), 0)
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                                                    {formatCurrency(
-                                                                        getFilteredDetailData('nguồn')
-                                                                            .reduce((sum, item) => sum + (item['Số tiền quý 2'] || 0), 0)
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                                                    {formatCurrency(
-                                                                        getFilteredDetailData('nguồn')
-                                                                            .reduce((sum, item) => sum + (item['Số tiền quý 3'] || 0), 0)
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                                                                    {formatCurrency(
-                                                                        getFilteredDetailData('nguồn')
-                                                                            .reduce((sum, item) => sum + (item['Số tiền quý 4'] || 0), 0)
-                                                                    )}
-                                                                </td>
-                                                            </tr>
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-
-                                            {/* Chi tiết theo tháng (phần trăm) */}
-                                            <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
-                                                <h4 className="font-medium text-gray-800 mb-4">Phân bổ phần trăm theo tháng</h4>
-                                                
-                                                <div className="overflow-x-auto">
-                                                    <table className="min-w-full divide-y divide-gray-200">
-                                                        <thead className="bg-gray-50">
-                                                            <tr>
-                                                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chi tiết</th>
-                                                                {[...Array(12)].map((_, i) => (
-                                                                    <th key={i} className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                                        %Tháng {i + 1}
-                                                                    </th>
+                                                            </thead>
+                                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                                {getFilteredDetailData('nhân viên').map((item, index) => (
+                                                                    <tr key={index} className="hover:bg-gray-50">
+                                                                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
+                                                                            {item['Chi Tiết']}
+                                                                        </td>
+                                                                        {[...Array(12)].map((_, i) => (
+                                                                            <td key={i} className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                                                                                {formatCurrency(item[`Số tiền tháng ${i + 1}`] || 0)}
+                                                                            </td>
+                                                                        ))}
+                                                                    </tr>
                                                                 ))}
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="bg-white divide-y divide-gray-200">
-                                                            {getFilteredDetailData('nguồn').map((item, index) => (
-                                                                <tr key={index} className="hover:bg-gray-50">
-                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                                        {item['Chi Tiết']}
+
+                                                                {/* Total row */}
+                                                                <tr className="bg-gray-50 font-medium">
+                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                                        Tổng cộng
                                                                     </td>
                                                                     {[...Array(12)].map((_, i) => (
-                                                                        <td key={i} className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
-                                                                            {((item[`%Tháng ${i + 1}`] || 0) * 100).toFixed(2)}%
+                                                                        <td key={i} className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                                                            {formatCurrency(
+                                                                                getFilteredDetailData('nhân viên')
+                                                                                    .reduce((sum, item) => sum + (item[`Số tiền tháng ${i + 1}`] || 0), 0)
+                                                                            )}
                                                                         </td>
                                                                     ))}
                                                                 </tr>
-                                                            ))}
-                                                            {/* Total row */}
-                                                            <tr className="bg-gray-50 font-medium">
-                                                                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                                    Tổng cộng
-                                                                </td>
-                                                                {[...Array(12)].map((_, i) => (
-                                                                    <td key={i} className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Tab Content - NGUỒN */}
+                                            <div className={detailActiveTab === 'nguon' ? 'block' : 'hidden'}>
+                                                {/* Tổng quan theo năm và quý */}
+                                                <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+                                                    <h4 className="font-medium text-gray-800 mb-4">Tổng quan phân bổ theo nguồn</h4>
+                                                    <div className="overflow-x-auto">
+                                                        <table className="min-w-full divide-y divide-gray-200">
+                                                            <thead className="bg-gray-50">
+                                                                <tr>
+                                                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chi tiết</th>
+                                                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">%Năm</th>
+                                                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Số tiền năm</th>
+                                                                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">%Quý 1</th>
+                                                                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">%Quý 2</th>
+                                                                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">%Quý 3</th>
+                                                                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">%Quý 4</th>
+                                                                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Số tiền Q1</th>
+                                                                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Số tiền Q2</th>
+                                                                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Số tiền Q3</th>
+                                                                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Số tiền Q4</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                                {getFilteredDetailData('nguồn').map((item, index) => (
+                                                                    <tr key={index} className="hover:bg-gray-50">
+                                                                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
+                                                                            {item['Chi Tiết']}
+                                                                        </td>
+                                                                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
+                                                                            {((item['%Năm'] || 0) * 100).toFixed(2)}%
+                                                                        </td>
+                                                                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
+                                                                            {formatCurrency(item['Số tiền năm'] || 0)}
+                                                                        </td>
+                                                                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                                                                            {((item['%Quý 1'] || 0) * 100).toFixed(2)}%
+                                                                        </td>
+                                                                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                                                                            {((item['%Quý 2'] || 0) * 100).toFixed(2)}%
+                                                                        </td>
+                                                                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                                                                            {((item['%Quý 3'] || 0) * 100).toFixed(2)}%
+                                                                        </td>
+                                                                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                                                                            {((item['%Quý 4'] || 0) * 100).toFixed(2)}%
+                                                                        </td>
+                                                                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                                                                            {formatCurrency(item['Số tiền quý 1'] || 0)}
+                                                                        </td>
+                                                                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                                                                            {formatCurrency(item['Số tiền quý 2'] || 0)}
+                                                                        </td>
+                                                                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                                                                            {formatCurrency(item['Số tiền quý 3'] || 0)}
+                                                                        </td>
+                                                                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                                                                            {formatCurrency(item['Số tiền quý 4'] || 0)}
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+
+                                                                {/* Total row */}
+                                                                <tr className="bg-gray-50 font-medium">
+                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                                        Tổng cộng
+                                                                    </td>
+                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
                                                                         {(getFilteredDetailData('nguồn')
-                                                                            .reduce((sum, item) => sum + (item[`%Tháng ${i + 1}`] || 0), 0) * 100)
+                                                                            .reduce((sum, item) => sum + (item['%Năm'] || 0), 0) * 100)
                                                                             .toFixed(2)}%
                                                                     </td>
-                                                                ))}
-                                                            </tr>
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-
-                                            {/* Chi tiết theo tháng (số tiền) */}
-                                            <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
-                                                <h4 className="font-medium text-gray-800 mb-4">Phân bổ số tiền theo tháng</h4>
-                                                
-                                                <div className="overflow-x-auto">
-                                                    <table className="min-w-full divide-y divide-gray-200">
-                                                        <thead className="bg-gray-50">
-                                                            <tr>
-                                                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chi tiết</th>
-                                                                {[...Array(12)].map((_, i) => (
-                                                                    <th key={i} className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                                        Tháng {i + 1}
-                                                                    </th>
-                                                                ))}
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="bg-white divide-y divide-gray-200">
-                                                            {getFilteredDetailData('nguồn').map((item, index) => (
-                                                                <tr key={index} className="hover:bg-gray-50">
-                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                                        {item['Chi Tiết']}
-                                                                    </td>
-                                                                    {[...Array(12)].map((_, i) => (
-                                                                        <td key={i} className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
-                                                                            {formatCurrency(item[`Số tiền tháng ${i + 1}`] || 0)}
-                                                                        </td>
-                                                                    ))}
-                                                                </tr>
-                                                            ))}
-                                                            
-                                                            {/* Total row */}
-                                                            <tr className="bg-gray-50 font-medium">
-                                                                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                                    Tổng cộng
-                                                                </td>
-                                                                {[...Array(12)].map((_, i) => (
-                                                                    <td key={i} className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
                                                                         {formatCurrency(
                                                                             getFilteredDetailData('nguồn')
-                                                                                .reduce((sum, item) => sum + (item[`Số tiền tháng ${i + 1}`] || 0), 0)
+                                                                                .reduce((sum, item) => sum + (item['Số tiền năm'] || 0), 0)
                                                                         )}
                                                                     </td>
+                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                                                        {(getFilteredDetailData('nguồn')
+                                                                            .reduce((sum, item) => sum + (item['%Quý 1'] || 0), 0) * 100)
+                                                                            .toFixed(2)}%
+                                                                    </td>
+                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                                                        {(getFilteredDetailData('nguồn')
+                                                                            .reduce((sum, item) => sum + (item['%Quý 2'] || 0), 0) * 100)
+                                                                            .toFixed(2)}%
+                                                                    </td>
+                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                                                        {(getFilteredDetailData('nguồn')
+                                                                            .reduce((sum, item) => sum + (item['%Quý 3'] || 0), 0) * 100)
+                                                                            .toFixed(2)}%
+                                                                    </td>
+                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                                                        {(getFilteredDetailData('nguồn')
+                                                                            .reduce((sum, item) => sum + (item['%Quý 4'] || 0), 0) * 100)
+                                                                            .toFixed(2)}%
+                                                                    </td>
+                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                                                        {formatCurrency(
+                                                                            getFilteredDetailData('nguồn')
+                                                                                .reduce((sum, item) => sum + (item['Số tiền quý 1'] || 0), 0)
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                                                        {formatCurrency(
+                                                                            getFilteredDetailData('nguồn')
+                                                                                .reduce((sum, item) => sum + (item['Số tiền quý 2'] || 0), 0)
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                                                        {formatCurrency(
+                                                                            getFilteredDetailData('nguồn')
+                                                                                .reduce((sum, item) => sum + (item['Số tiền quý 3'] || 0), 0)
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                                                        {formatCurrency(
+                                                                            getFilteredDetailData('nguồn')
+                                                                                .reduce((sum, item) => sum + (item['Số tiền quý 4'] || 0), 0)
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+
+                                                {/* Chi tiết theo tháng (phần trăm) */}
+                                                <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
+                                                    <h4 className="font-medium text-gray-800 mb-4">Phân bổ phần trăm theo tháng</h4>
+
+                                                    <div className="overflow-x-auto">
+                                                        <table className="min-w-full divide-y divide-gray-200">
+                                                            <thead className="bg-gray-50">
+                                                                <tr>
+                                                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chi tiết</th>
+                                                                    {[...Array(12)].map((_, i) => (
+                                                                        <th key={i} className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                            %Tháng {i + 1}
+                                                                        </th>
+                                                                    ))}
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                                {getFilteredDetailData('nguồn').map((item, index) => (
+                                                                    <tr key={index} className="hover:bg-gray-50">
+                                                                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
+                                                                            {item['Chi Tiết']}
+                                                                        </td>
+                                                                        {[...Array(12)].map((_, i) => (
+                                                                            <td key={i} className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                                                                                {((item[`%Tháng ${i + 1}`] || 0) * 100).toFixed(2)}%
+                                                                            </td>
+                                                                        ))}
+                                                                    </tr>
                                                                 ))}
-                                                            </tr>
-                                                        </tbody>
-                                                    </table>
+                                                                {/* Total row */}
+                                                                <tr className="bg-gray-50 font-medium">
+                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                                        Tổng cộng
+                                                                    </td>
+                                                                    {[...Array(12)].map((_, i) => (
+                                                                        <td key={i} className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                                                            {(getFilteredDetailData('nguồn')
+                                                                                .reduce((sum, item) => sum + (item[`%Tháng ${i + 1}`] || 0), 0) * 100)
+                                                                                .toFixed(2)}%
+                                                                        </td>
+                                                                    ))}
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+
+                                                {/* Chi tiết theo tháng (số tiền) */}
+                                                <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
+                                                    <h4 className="font-medium text-gray-800 mb-4">Phân bổ số tiền theo tháng</h4>
+
+                                                    <div className="overflow-x-auto">
+                                                        <table className="min-w-full divide-y divide-gray-200">
+                                                            <thead className="bg-gray-50">
+                                                                <tr>
+                                                                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chi tiết</th>
+                                                                    {[...Array(12)].map((_, i) => (
+                                                                        <th key={i} className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                            Tháng {i + 1}
+                                                                        </th>
+                                                                    ))}
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                                {getFilteredDetailData('nguồn').map((item, index) => (
+                                                                    <tr key={index} className="hover:bg-gray-50">
+                                                                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
+                                                                            {item['Chi Tiết']}
+                                                                        </td>
+                                                                        {[...Array(12)].map((_, i) => (
+                                                                            <td key={i} className="px-3 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                                                                                {formatCurrency(item[`Số tiền tháng ${i + 1}`] || 0)}
+                                                                            </td>
+                                                                        ))}
+                                                                    </tr>
+                                                                ))}
+
+                                                                {/* Total row */}
+                                                                <tr className="bg-gray-50 font-medium">
+                                                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                                        Tổng cộng
+                                                                    </td>
+                                                                    {[...Array(12)].map((_, i) => (
+                                                                        <td key={i} className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                                                                            {formatCurrency(
+                                                                                getFilteredDetailData('nguồn')
+                                                                                    .reduce((sum, item) => sum + (item[`Số tiền tháng ${i + 1}`] || 0), 0)
+                                                                            )}
+                                                                        </td>
+                                                                    ))}
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* Monthly Allocation Chart */}
-                                <div className="mt-6">
-                                    <h3 className="text-lg font-semibold text-blue-800 mb-3">Biểu đồ phân bổ theo tháng</h3>
-                                    <div className="bg-white p-4 rounded-lg border border-gray-200">
-                                        <div className="space-y-3">
-                                            {[...Array(12)].map((_, i) => {
-                                                const percentage = (selectedPlan[`Tháng ${i + 1}`] || 0) * 100;
+                                    {/* Monthly Allocation Chart */}
+                                    <div className="mt-6">
+                                        <h3 className="text-lg font-semibold text-blue-800 mb-3">Biểu đồ phân bổ theo tháng</h3>
+                                        <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                            <div className="space-y-3">
+                                                {[...Array(12)].map((_, i) => {
+                                                    const percentage = (selectedPlan[`Tháng ${i + 1}`] || 0) * 100;
 
-                                                return (
-                                                    <div key={i} className="flex items-center">
-                                                        <span className="w-16 text-sm text-gray-600">Tháng {i + 1}:</span>
-                                                        <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
-                                                            <div
-                                                                className={`h-full rounded-full flex items-center ${i < 3 ? 'bg-blue-500' :
-                                                                    i < 6 ? 'bg-green-500' :
-                                                                        i < 9 ? 'bg-yellow-500' :
-                                                                            'bg-purple-500'
-                                                                    }`}
-                                                                style={{ width: `${percentage}%` }}
-                                                            >
-                                                                {percentage >= 5 && (
-                                                                    <span className="ml-2 text-xs text-white font-medium">
-                                                                        {percentage.toFixed(1)}%
-                                                                    </span>
-                                                                )}
+                                                    return (
+                                                        <div key={i} className="flex items-center">
+                                                            <span className="w-16 text-sm text-gray-600">Tháng {i + 1}:</span>
+                                                            <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className={`h-full rounded-full flex items-center ${i < 3 ? 'bg-blue-500' :
+                                                                        i < 6 ? 'bg-green-500' :
+                                                                            i < 9 ? 'bg-yellow-500' :
+                                                                                'bg-purple-500'
+                                                                        }`}
+                                                                    style={{ width: `${percentage}%` }}
+                                                                >
+                                                                    {percentage >= 5 && (
+                                                                        <span className="ml-2 text-xs text-white font-medium">
+                                                                            {percentage.toFixed(1)}%
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                        {percentage < 5 && (
-                                                            <span className="ml-2 text-xs text-gray-600 font-medium w-12">
-                                                                {percentage.toFixed(1)}%
+                                                            {percentage < 5 && (
+                                                                <span className="ml-2 text-xs text-gray-600 font-medium w-12">
+                                                                    {percentage.toFixed(1)}%
+                                                                </span>
+                                                            )}
+                                                            <span className="ml-2 text-xs text-gray-500 w-24">
+                                                                {formatCurrency((selectedPlan["Số tiền"] || 0) * (selectedPlan[`Tháng ${i + 1}`] || 0))}
                                                             </span>
-                                                        )}
-                                                        <span className="ml-2 text-xs text-gray-500 w-24">
-                                                            {formatCurrency((selectedPlan["Số tiền"] || 0) * (selectedPlan[`Tháng ${i + 1}`] || 0))}
-                                                        </span>
-                                                    </div>
-                                                );
-                                            })}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
-                    </div>
+                            )}
+                        </div>
 
-                    <div className="border-t border-gray-200 p-4 flex justify-end">
-                        <button
-                            onClick={() => setShowDetailModal(false)}
-                            className="px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors"
-                        >
-                            Đóng
-                        </button>
+                        <div className="border-t border-gray-200 p-4 flex justify-end">
+                            <button
+                                onClick={() => setShowDetailModal(false)}
+                                className="px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                            >
+                                Đóng
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        )}
+            )}
 
-        {/* Toast Container */}
-        <ToastContainer
-            position="top-right"
-            autoClose={3000}
-            hideProgressBar={false}
-            newestOnTop
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme="light"
-        />
-    </div>
-);
+            {/* Toast Container */}
+            <ToastContainer
+                position="top-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="light"
+            />
+        </div>
+    );
 };
 
 export default FinancialPlanningView;

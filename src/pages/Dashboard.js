@@ -1,836 +1,232 @@
 import React, { useState, useEffect } from 'react';
-import ReactApexChart from 'react-apexcharts';
+import { useNavigate } from 'react-router-dom';
 import {
-   Users, FileText, Briefcase, Calendar, TrendingUp, 
-   Phone, MessageSquare, Loader2
+    ArrowRight,
+    ExternalLink,
+    Search,
+    X,
+    SlidersHorizontal
 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { Button } from "../components/ui/button";
-import { DatePicker } from "../components/ui/datepicker";
 import authUtils from '../utils/authUtils';
+import { dashboardMenuItems, checkDashboardPermission } from '../config/menuConfig';
 
-const formatCurrency = (value) => {
-   if (value >= 1e9) return (value / 1e9).toFixed(1) + ' tỷ';
-   if (value >= 1e6) return (value / 1e6).toFixed(1) + ' triệu';
-   if (value >= 1e3) return (value / 1e3).toFixed(1) + ' nghìn';
-   return value + 'đ';
+const MenuStructurePage = () => {
+    const navigate = useNavigate();
+    const [collapsedGroups, setCollapsedGroups] = useState({});
+    const userData = authUtils.getUserData();
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedGroup, setSelectedGroup] = useState('all');
+    const [filteredItems, setFilteredItems] = useState([]);
+    
+    // Sử dụng menu items từ config
+    const menuItems = dashboardMenuItems;
+
+    // Lọc items dựa trên từ khóa tìm kiếm và nhóm đã chọn
+    useEffect(() => {
+        const filtered = menuItems
+            .filter(group => checkDashboardPermission(group, userData))
+            .map(group => {
+                // Lọc các item dựa trên quyền truy cập và từ khóa tìm kiếm
+                const accessibleItems = group.items.filter(item => 
+                    checkDashboardPermission(item, userData) && 
+                    (searchQuery === '' || 
+                     item.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                     (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase())))
+                );
+                
+                return {
+                    ...group,
+                    filteredItems: accessibleItems
+                };
+            })
+            .filter(group => selectedGroup === 'all' || group.groupId.toString() === selectedGroup);
+        
+        setFilteredItems(filtered);
+    }, [searchQuery, selectedGroup, menuItems, userData]);
+
+    // Hàm xử lý khi click vào menu item
+    const handleItemClick = (item) => {
+        if (item.isLogout) {
+            localStorage.removeItem('auth_token');
+            navigate('/');
+        } else if (item.isExternal) {
+            window.open(item.path, '_blank');
+        } else {
+            navigate(item.path);
+        }
+    };
+
+    // Lấy tất cả các nhóm để hiển thị trong bộ lọc
+    const allGroups = menuItems
+        .filter(group => checkDashboardPermission(group, userData))
+        .map(group => ({
+            id: group.groupId,
+            name: group.groupName
+        }));
+
+    // Xóa tìm kiếm
+    const clearSearch = () => {
+        setSearchQuery('');
+    };
+
+    // Đếm tổng số mục hiển thị
+    const totalItemsShown = filteredItems.reduce((total, group) => total + group.filteredItems.length, 0);
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+            {/* Khu vực tìm kiếm và lọc */}
+            <div className="bg-white p-4 mb-4 rounded-lg shadow-sm border">
+                <div className="flex flex-col md:flex-row gap-3 mb-2">
+                    {/* Ô tìm kiếm */}
+                    <div className="relative flex-grow">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Tìm kiếm chức năng..."
+                            className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7c5b2f]/30 focus:border-[#7c5b2f] transition-all"
+                        />
+                        {searchQuery && (
+                            <button 
+                                onClick={clearSearch}
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        )}
+                    </div>
+                    
+                    {/* Bộ lọc theo nhóm */}
+                    <div className="flex-shrink-0">
+                        <div className="flex items-center space-x-2">
+                            <SlidersHorizontal className="h-4 w-4 text-[#7c5b2f]" />
+                            <select
+                                value={selectedGroup}
+                                onChange={(e) => setSelectedGroup(e.target.value)}
+                                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7c5b2f]/30 focus:border-[#7c5b2f] bg-white"
+                            >
+                                <option value="all">Tất cả nhóm</option>
+                                {allGroups.map(group => (
+                                    <option key={group.id} value={group.id.toString()}>
+                                        {group.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                {/* Hiển thị số lượng kết quả */}
+                <div className="text-sm text-gray-500">
+                    {searchQuery ? (
+                        <span>Tìm thấy {totalItemsShown} chức năng cho từ khóa "{searchQuery}"</span>
+                    ) : (
+                        <span>Hiển thị {totalItemsShown} chức năng {selectedGroup !== 'all' ? 'trong nhóm đã chọn' : ''}</span>
+                    )}
+                </div>
+            </div>
+
+            {/* Main Content */}
+            <div className="mx-auto p-4">
+                {filteredItems.length === 0 || totalItemsShown === 0 ? (
+                    <div className="text-center py-8">
+                        <div className="text-gray-400 mb-2">
+                            <Search className="h-12 w-12 mx-auto" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-600">Không tìm thấy chức năng nào</h3>
+                        <p className="text-gray-500 mt-1">Vui lòng thử từ khóa khác hoặc chọn nhóm khác</p>
+                        {(searchQuery || selectedGroup !== 'all') && (
+                            <button 
+                                onClick={() => {
+                                    setSearchQuery('');
+                                    setSelectedGroup('all');
+                                }}
+                                className="mt-4 px-4 py-2 bg-[#7c5b2f] text-white rounded-lg hover:bg-[#584107] transition-colors"
+                            >
+                                Xóa bộ lọc
+                            </button>
+                        )}
+                    </div>
+                ) : (
+                    filteredItems.map((group) => {
+                        if (group.filteredItems.length === 0) {
+                            return null;
+                        }
+
+                        const GroupIcon = group.icon;
+
+                        return (
+                            <div key={group.groupId} className="mb-6">
+                                <div className="flex items-center mb-3">
+                                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#7c5b2f] to-[#584107] flex items-center justify-center text-white shadow-md mr-2">
+                                        <GroupIcon className="h-4 w-4" />
+                                    </div>
+                                    <h2 className="text-lg font-semibold text-gray-800">{group.groupName}</h2>
+                                    <div className="ml-2 px-2 py-0.5 rounded-full bg-gray-100 text-xs font-medium text-gray-500">
+                                        {group.filteredItems.length} chức năng
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                                    {group.filteredItems.map((item, index) => {
+                                        const Icon = item.icon;
+                                        return (
+                                            <div
+                                                key={index}
+                                                className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md hover:border-[#d99c07]/30 transition-all cursor-pointer relative group overflow-hidden"
+                                                onClick={() => handleItemClick(item)}
+                                            >
+                                                <div className="absolute top-0 right-0 h-10 w-10 bg-gradient-to-br from-[#b7a035]/10 to-[#d99c07]/10 rounded-bl-full transform translate-x-4 -translate-y-4 group-hover:translate-x-2 group-hover:-translate-y-2 transition-transform"></div>
+
+                                                <div className="flex items-center">
+                                                    {/* Icon bên trái */}
+                                                    <div className="bg-gradient-to-br from-[#7c5b2f] to-[#7c5b2f] p-2 rounded-lg shadow-sm group-hover:shadow-md transition-shadow mr-3">
+                                                        <Icon className="h-5 w-5 text-white" />
+                                                    </div>
+
+                                                    {/* Nội dung ở giữa */}
+                                                    <div className="flex-1">
+                                                        <h3 className="font-semibold text-gray-800 text-sm">{item.text}</h3>
+                                                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                                                            {item.description || `Quản lý ${item.text.toLowerCase()}`}
+                                                        </p>
+
+                                                        {item.count > 0 && (
+                                                            <div className="mt-1 inline-block px-2 py-0.5 bg-blue-50 text-[#003399] text-xs font-medium rounded-full">
+                                                                {item.count}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Action bên phải */}
+                                                    <div className="ml-2">
+                                                        <span className="text-[#b7a035] group-hover:text-[#d99c07] flex items-center text-xs font-medium transition-colors whitespace-nowrap">
+                                                            {item.isExternal ? (
+                                                                <>
+                                                                    <ExternalLink className="h-3 w-3 mr-1" />
+                                                                    Mở liên kết
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    Truy cập
+                                                                    <ArrowRight className="h-3 w-3 ml-1 transform group-hover:translate-x-1 transition-transform" />
+                                                                </>
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })
+                )}
+            </div>
+        </div>
+    );
 };
 
-const StatCardSkeleton = () => (
-   <Card className="animate-pulse">
-       <CardContent className="p-4">
-           <div className="flex items-start justify-between">
-               <div className="space-y-2">
-                   <div className="h-3 w-20 bg-gray-200 rounded"></div>
-                   <div className="h-6 w-24 bg-gray-300 rounded"></div>
-                   <div className="h-3 w-28 bg-gray-200 rounded"></div>
-               </div>
-               <div className="bg-gray-300 rounded-lg p-2 w-8 h-8"></div>
-           </div>
-       </CardContent>
-   </Card>
-);
-
-const ChartSkeleton = ({ height = "h-72" }) => (
-   <Card>
-       <CardHeader>
-           <div className="h-5 w-36 bg-gray-200 rounded animate-pulse"></div>
-       </CardHeader>
-       <CardContent>
-           <div className={`${height} bg-gray-100 rounded-lg animate-pulse flex items-center justify-center`}>
-               <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-           </div>
-       </CardContent>
-   </Card>
-);
-
-const StatCard = ({ title, value, icon: Icon, color, percentageChange, isCurrency }) => (
-   <Card className="transition-transform duration-200 hover:scale-[1.02]">
-       <CardContent className="p-4">
-           <div className="flex items-start justify-between">
-               <div>
-                   <p className="text-sm text-gray-500 font-medium mb-1">{title}</p>
-                   <h3 className="text-xl font-bold text-gray-800">
-                       {isCurrency ? formatCurrency(value) : value}
-                   </h3>
-                   {percentageChange !== undefined && (
-                       <p className={`text-xs mt-1 flex items-center ${percentageChange > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                           <span className={`mr-1 ${percentageChange > 0 ? 'rotate-0' : 'rotate-180'}`}>↑</span>
-                           {Math.abs(percentageChange)}% so với tháng trước
-                       </p>
-                   )}
-               </div>
-               <div className={`${color} rounded-lg p-2`}>
-                   <Icon className="w-4 h-4 text-white" />
-               </div>
-           </div>
-       </CardContent>
-   </Card>
-);
-
-// Mock data generator functions
-const generateMockData = () => {
-   // Customers data
-   const customers = Array.from({ length: 120 }, (_, i) => ({
-       id: i + 1,
-       name: `Khách hàng ${i + 1}`,
-       phone: `09${Math.floor(10000000 + Math.random() * 90000000)}`,
-       email: `customer${i + 1}@example.com`,
-       type: ['VIP', 'Regular', 'New'][Math.floor(Math.random() * 3)],
-       createdAt: new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
-   }));
-
-   // Customer care activities
-   const careActivities = Array.from({ length: 250 }, (_, i) => ({
-       id: i + 1,
-       customerId: Math.floor(Math.random() * 120) + 1,
-       type: ['Call', 'Email', 'Message', 'Visit'][Math.floor(Math.random() * 4)],
-       notes: `Hoạt động chăm sóc ${i + 1}`,
-       date: new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
-   }));
-
-   // Quotes
-   const quotes = Array.from({ length: 80 }, (_, i) => ({
-       id: i + 1,
-       customerId: Math.floor(Math.random() * 120) + 1,
-       amount: Math.floor(10000000 + Math.random() * 90000000),
-       status: ['Pending', 'Accepted', 'Rejected'][Math.floor(Math.random() * 3)],
-       date: new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
-   }));
-
-   // Contracts
-   const contracts = Array.from({ length: 45 }, (_, i) => ({
-       id: i + 1,
-       customerId: Math.floor(Math.random() * 120) + 1,
-       amount: Math.floor(20000000 + Math.random() * 150000000),
-       status: ['Active', 'Completed', 'Terminated'][Math.floor(Math.random() * 3)],
-       startDate: new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
-   }));
-
-   // Appointments
-   const appointments = Array.from({ length: 95 }, (_, i) => ({
-       id: i + 1,
-       customerId: Math.floor(Math.random() * 120) + 1,
-       purpose: ['Discussion', 'Presentation', 'Contract Signing', 'Support'][Math.floor(Math.random() * 4)],
-       status: ['Scheduled', 'Completed', 'Cancelled'][Math.floor(Math.random() * 3)],
-       date: new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
-   }));
-
-   return { customers, careActivities, quotes, contracts, appointments };
-};
-
-const CRMDashboard = () => {
-   const [allData, setAllData] = useState(null);
-   const [dateRange, setDateRange] = useState({
-       start: new Date(new Date().setDate(new Date().getDate() - 30)),
-       end: new Date()
-   });
-   const [chartType, setChartType] = useState('line');
-   const [timeFilter, setTimeFilter] = useState('30d');
-   const [stats, setStats] = useState(null);
-   const [loading, setLoading] = useState(true);
-   const [analyticsData, setAnalyticsData] = useState({
-       revenueData: [],
-       customerStats: [],
-       careTypeStats: [],
-       quoteStats: {},
-   });
-   const [chartOptions, setChartOptions] = useState({
-       revenue: {},
-       customerTypes: {},
-       careTypes: {},
-       quoteDistribution: {}
-   });
-
-   const handleTimeFilterChange = (value) => {
-       setTimeFilter(value);
-       const end = new Date();
-       let start = new Date();
-
-       switch (value) {
-           case '7d':
-               start.setDate(end.getDate() - 7);
-               break;
-           case '30d':
-               start.setDate(end.getDate() - 30);
-               break;
-           case '90d':
-               start.setDate(end.getDate() - 90);
-               break;
-           case '1y':
-               start.setFullYear(end.getFullYear() - 1);
-               break;
-       }
-
-       setDateRange({ start, end });
-   };
-
-   const handleRefresh = async () => {
-       setLoading(true);
-       // In a real app, you would fetch from API
-       // For now, we regenerate mock data
-       setAllData(generateMockData());
-       setTimeout(() => {
-           processData();
-       }, 500);
-   };
-
-   const processData = () => {
-       try {
-           if (!allData) return;
-
-           const { customers, careActivities, quotes, contracts, appointments } = allData;
-
-           // Filter data by date range
-           const filteredCustomers = customers.filter(customer => 
-               customer.createdAt >= dateRange.start && customer.createdAt <= dateRange.end
-           );
-           
-           const filteredCareActivities = careActivities.filter(activity => 
-               activity.date >= dateRange.start && activity.date <= dateRange.end
-           );
-           
-           const filteredQuotes = quotes.filter(quote => 
-               quote.date >= dateRange.start && quote.date <= dateRange.end
-           );
-           
-           const filteredContracts = contracts.filter(contract => 
-               contract.startDate >= dateRange.start && contract.startDate <= dateRange.end
-           );
-           
-           const filteredAppointments = appointments.filter(appointment => 
-               appointment.date >= dateRange.start && appointment.date <= dateRange.end
-           );
-
-           // Calculate revenue from contracts
-           const totalRevenue = filteredContracts.reduce((sum, contract) => 
-               sum + contract.amount, 0
-           );
-
-           // Get counts
-           const totalCustomers = filteredCustomers.length;
-           const totalCareActivities = filteredCareActivities.length;
-           const totalQuotes = filteredQuotes.length;
-           const totalContracts = filteredContracts.length;
-           const totalAppointments = filteredAppointments.length;
-
-           // Calculate percentage changes (comparing to previous period)
-           const previousPeriodStart = new Date(dateRange.start);
-           previousPeriodStart.setDate(previousPeriodStart.getDate() - (dateRange.end - dateRange.start) / (1000 * 60 * 60 * 24));
-           
-           const previousPeriodCustomers = customers.filter(customer => 
-               customer.createdAt >= previousPeriodStart && customer.createdAt < dateRange.start
-           ).length;
-           
-           const customerPercentageChange = previousPeriodCustomers 
-               ? ((totalCustomers - previousPeriodCustomers) / previousPeriodCustomers) * 100 
-               : 0;
-
-           const previousPeriodRevenue = contracts.filter(contract => 
-               contract.startDate >= previousPeriodStart && contract.startDate < dateRange.start
-           ).reduce((sum, contract) => sum + contract.amount, 0);
-           
-           const revenuePercentageChange = previousPeriodRevenue 
-               ? ((totalRevenue - previousPeriodRevenue) / previousPeriodRevenue) * 100 
-               : 0;
-
-           setStats({
-               customers: totalCustomers,
-               careActivities: totalCareActivities,
-               quotes: totalQuotes,
-               contracts: totalContracts,
-               appointments: totalAppointments,
-               revenue: totalRevenue,
-               customerPercentageChange: parseFloat(customerPercentageChange.toFixed(1)),
-               revenuePercentageChange: parseFloat(revenuePercentageChange.toFixed(1))
-           });
-
-           // Prepare data for charts
-           // Revenue by month
-           const revenueByMonth = contracts.reduce((acc, contract) => {
-               const month = contract.startDate.toLocaleString('vi-VN', { month: 'long', year: 'numeric' });
-               acc[month] = (acc[month] || 0) + contract.amount;
-               return acc;
-           }, {});
-
-           const revenueData = Object.entries(revenueByMonth)
-               .map(([month, amount]) => ({
-                   month,
-                   revenue: amount
-               }))
-               .sort((a, b) => new Date(a.month) - new Date(b.month));
-
-           // Customer types
-           const customerByType = customers.reduce((acc, customer) => {
-               acc[customer.type] = (acc[customer.type] || 0) + 1;
-               return acc;
-           }, {});
-
-           const customerStats = Object.entries(customerByType)
-               .map(([type, count]) => ({
-                   type,
-                   count
-               }));
-
-           // Care activities by type
-           const careByType = filteredCareActivities.reduce((acc, activity) => {
-               acc[activity.type] = (acc[activity.type] || 0) + 1;
-               return acc;
-           }, {});
-
-           const careTypeStats = Object.entries(careByType)
-               .map(([type, count]) => ({
-                   type,
-                   count
-               }));
-
-           // Quote statistics
-           const acceptedQuotes = filteredQuotes.filter(quote => quote.status === 'Accepted').length;
-           const quoteSuccessRate = filteredQuotes.length ? (acceptedQuotes / filteredQuotes.length) * 100 : 0;
-           
-           const quoteStats = {
-               total: filteredQuotes.length,
-               accepted: acceptedQuotes,
-               successRate: quoteSuccessRate,
-               averageValue: filteredQuotes.length ? 
-                   filteredQuotes.reduce((sum, quote) => sum + quote.amount, 0) / filteredQuotes.length : 0
-           };
-
-           setAnalyticsData({
-               revenueData,
-               customerStats,
-               careTypeStats,
-               quoteStats
-           });
-
-           // Configure ApexCharts options
-           // Revenue Chart
-           const revenueOptions = {
-               chart: {
-                   type: chartType,
-                   height: 350,
-                   toolbar: {
-                       show: false
-                   }
-               },
-               dataLabels: {
-                   enabled: false
-               },
-               stroke: {
-                   curve: 'smooth',
-                   width: 2
-               },
-               xaxis: {
-                   categories: revenueData.map(item => item.month),
-                   labels: {
-                       style: {
-                           fontFamily: 'Inter, sans-serif'
-                       }
-                   }
-               },
-               yaxis: {
-                   labels: {
-                       formatter: function(value) {
-                           return formatCurrency(value);
-                       },
-                       style: {
-                           fontFamily: 'Inter, sans-serif'
-                       }
-                   }
-               },
-               tooltip: {
-                   y: {
-                       formatter: function(value) {
-                           return formatCurrency(value);
-                       }
-                   }
-               },
-               colors: ['#0088FE'],
-               title: {
-                   text: 'Xu hướng doanh thu',
-                   align: 'left',
-                   style: {
-                       fontSize: '16px',
-                       fontWeight: 'bold',
-                       fontFamily: 'Inter, sans-serif'
-                   }
-               }
-           };
-
-           // Customer Types Pie Chart
-           const customerTypesOptions = {
-               chart: {
-                   type: 'pie',
-                   height: 350
-               },
-               labels: customerStats.map(item => item.type),
-               colors: ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'],
-               legend: {
-                   position: 'bottom',
-                   fontFamily: 'Inter, sans-serif'
-               },
-               dataLabels: {
-                   enabled: true,
-                   formatter: function (val, opts) {
-                       return opts.w.config.labels[opts.seriesIndex] + ': ' + opts.w.globals.series[opts.seriesIndex];
-                   },
-                   style: {
-                       fontFamily: 'Inter, sans-serif'
-                   }
-               },
-               title: {
-                   text: 'Phân loại khách hàng',
-                   align: 'left',
-                   style: {
-                       fontSize: '16px',
-                       fontWeight: 'bold',
-                       fontFamily: 'Inter, sans-serif'
-                   }
-               },
-               responsive: [{
-                   breakpoint: 480,
-                   options: {
-                       chart: {
-                           width: 300
-                       },
-                       legend: {
-                           position: 'bottom'
-                       }
-                   }
-               }]
-           };
-
-           // Care Types Bar Chart
-           const careTypesOptions = {
-               chart: {
-                   type: 'bar',
-                   height: 350,
-                   toolbar: {
-                       show: false
-                   }
-               },
-               plotOptions: {
-                   bar: {
-                       borderRadius: 4,
-                       horizontal: false,
-                   }
-               },
-               dataLabels: {
-                   enabled: false
-               },
-               stroke: {
-                   show: true,
-                   width: 2,
-                   colors: ['transparent']
-               },
-               xaxis: {
-                   categories: careTypeStats.map(item => item.type),
-                   labels: {
-                       style: {
-                           fontFamily: 'Inter, sans-serif'
-                       }
-                   }
-               },
-               yaxis: {
-                   title: {
-                       text: 'Số lượng',
-                       style: {
-                           fontFamily: 'Inter, sans-serif'
-                       }
-                   },
-                   labels: {
-                       style: {
-                           fontFamily: 'Inter, sans-serif'
-                       }
-                   }
-               },
-               fill: {
-                   opacity: 1,
-                   colors: ['#00C49F']
-               },
-               tooltip: {
-                   y: {
-                       formatter: function (val) {
-                           return val + " lượt";
-                       }
-                   }
-               },
-               title: {
-                   text: 'Loại hình chăm sóc khách hàng',
-                   align: 'left',
-                   style: {
-                       fontSize: '16px',
-                       fontWeight: 'bold',
-                       fontFamily: 'Inter, sans-serif'
-                   }
-               }
-           };
-
-           // Quote Distribution Pie Chart
-           const quoteDistributionOptions = {
-               chart: {
-                   type: 'donut',
-                   height: 160
-               },
-               labels: ['Chấp nhận', 'Từ chối/Chờ'],
-               colors: ['#4CAF50', '#F44336'],
-               legend: {
-                   position: 'bottom',
-                   fontFamily: 'Inter, sans-serif'
-               },
-               dataLabels: {
-                   enabled: true,
-                   style: {
-                       fontFamily: 'Inter, sans-serif'
-                   }
-               },
-               responsive: [{
-                   breakpoint: 480,
-                   options: {
-                       chart: {
-                           width: 200
-                       },
-                       legend: {
-                           position: 'bottom'
-                       }
-                   }
-               }]
-           };
-
-           setChartOptions({
-               revenue: revenueOptions,
-               customerTypes: customerTypesOptions,
-               careTypes: careTypesOptions,
-               quoteDistribution: quoteDistributionOptions
-           });
-       } catch (error) {
-           console.error('Error processing data:', error);
-       } finally {
-           setLoading(false);
-       }
-   };
-
-   const resetFilters = () => {
-       setDateRange({
-           start: new Date(new Date().setDate(new Date().getDate() - 30)),
-           end: new Date()
-       });
-       setTimeFilter('30d');
-   };
-
-   useEffect(() => {
-       // Load mock data on first render
-       if (!allData) {
-           setAllData(generateMockData());
-       } else {
-           processData();
-       }
-   }, [dateRange, allData]);
-
-   const statCards = stats ? [
-       {
-           title: 'Khách hàng',
-           value: stats.customers || 0,
-           icon: Users,
-           color: 'bg-blue-500',
-           percentageChange: stats.customerPercentageChange,
-           isCurrency: false
-       },
-       {
-           title: 'Lượt chăm sóc',
-           value: stats.careActivities || 0,
-           icon: MessageSquare,
-           color: 'bg-green-500',
-           isCurrency: false
-       },
-       {
-           title: 'Báo giá',
-           value: stats.quotes || 0,
-           icon: FileText,
-           color: 'bg-orange-500',
-           isCurrency: false
-       },
-       {
-           title: 'Hợp đồng',
-           value: stats.contracts || 0,
-           icon: Briefcase,
-           color: 'bg-purple-500',
-           isCurrency: false
-       },
-       {
-           title: 'Doanh thu',
-           value: stats.revenue || 0,
-           icon: TrendingUp,
-           color: 'bg-red-500',
-           percentageChange: stats.revenuePercentageChange,
-           isCurrency: true
-       },
-       {
-           title: 'Cuộc hẹn',
-           value: stats.appointments || 0,
-           icon: Calendar,
-           color: 'bg-indigo-500',
-           isCurrency: false
-       }
-   ] : [];
-
-   return (
-       <div className="p-4 bg-gray-50 min-h-screen">
-           <div className="mx-auto space-y-4">
-               <div className="bg-white p-6 rounded-lg shadow-lg">
-                   <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-                       <h1 className="text-2xl font-bold text-gray-900">
-                           Tổng quan CRM
-                       </h1>
-
-                       <div className="flex flex-wrap items-center gap-4">
-                           <Button variant="outline" onClick={handleRefresh}>
-                               <Loader2 className="w-4 h-4 mr-2" />
-                               Làm mới
-                           </Button>
-
-                           <Button variant="outline" onClick={resetFilters}>
-                               Reset
-                           </Button>
-
-                           <Select value={timeFilter} onValueChange={handleTimeFilterChange}>
-                               <SelectTrigger className="w-44">
-                                   <Calendar className="w-4 h-4 mr-2" />
-                                   <SelectValue placeholder="Chọn thời gian" />
-                               </SelectTrigger>
-                               <SelectContent>
-                                   <SelectItem value="7d">7 ngày qua</SelectItem>
-                                   <SelectItem value="30d">30 ngày qua</SelectItem>
-                                   <SelectItem value="90d">90 ngày qua</SelectItem>
-                                   <SelectItem value="1y">1 năm qua</SelectItem>
-                               </SelectContent>
-                           </Select>
-
-                           <div className="flex gap-4">
-                               <DatePicker
-                                   selected={dateRange.start}
-                                   onChange={(date) => setDateRange(prev => ({ ...prev, start: date }))}
-                                   className="w-36"
-                                   placeholderText="Từ ngày"
-                               />
-                               <DatePicker
-                                   selected={dateRange.end}
-                                   onChange={(date) => setDateRange(prev => ({ ...prev, end: date }))}
-                                   className="w-36"
-                                   placeholderText="Đến ngày"
-                               />
-                           </div>
-                       </div>
-                   </div>
-               </div>
-
-               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-                   {loading
-                       ? Array(6).fill(0).map((_, i) => <StatCardSkeleton key={i} />)
-                       : statCards.map((stat, index) => <StatCard key={index} {...stat} />)
-                   }
-               </div>
-
-               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                   {loading ? (
-                       <>
-                           <ChartSkeleton height="h-72" />
-                           <ChartSkeleton height="h-72" />
-                       </>
-                   ) : (
-                       <>
-                           <Card>
-                               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                   <CardTitle className="text-base font-semibold">
-                                       Xu hướng doanh thu
-                                   </CardTitle>
-                                   <div className="flex gap-2">
-                                       <Button
-                                           variant={chartType === 'line' ? 'default' : 'outline'}
-                                           size="sm"
-                                           onClick={() => setChartType('line')}
-                                       >
-                                           Line
-                                       </Button>
-                                       <Button
-                                           variant={chartType === 'bar' ? 'default' : 'outline'}
-                                           size="sm"
-                                           onClick={() => setChartType('bar')}
-                                       >
-                                           Bar
-                                       </Button>
-                                   </div>
-                               </CardHeader>
-                               <CardContent>
-                                   <div className="h-72">
-                                       <ReactApexChart 
-                                           options={chartOptions.revenue}
-                                           series={[{
-                                               name: 'Doanh thu',
-                                               data: analyticsData.revenueData.map(item => item.revenue)
-                                           }]}
-                                           type={chartType}
-                                           height={350}
-                                       />
-                                   </div>
-                               </CardContent>
-                           </Card>
-
-                           <Card>
-                               <CardHeader>
-                                   <CardTitle className="text-base font-semibold">
-                                       Phân loại khách hàng
-                                   </CardTitle>
-                               </CardHeader>
-                               <CardContent>
-                                   <div className="h-72">
-                                       <ReactApexChart 
-                                           options={chartOptions.customerTypes}
-                                           series={analyticsData.customerStats.map(item => item.count)}
-                                           type="pie"
-                                           height={350}
-                                       />
-                                   </div>
-                               </CardContent>
-                           </Card>
-                       </>
-                   )}
-               </div>
-
-               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                   {loading ? (
-                       <>
-                           <ChartSkeleton height="h-72" />
-                           <ChartSkeleton height="h-72" />
-                       </>
-                   ) : (
-                       <>
-                           <Card>
-                               <CardHeader>
-                                   <CardTitle className="text-base font-semibold">
-                                       Loại hình chăm sóc khách hàng
-                                   </CardTitle>
-                               </CardHeader>
-                               <CardContent>
-                                   <div className="h-72">
-                                       <ReactApexChart 
-                                           options={chartOptions.careTypes}
-                                           series={[{
-                                               name: 'Số lượng',
-                                               data: analyticsData.careTypeStats.map(item => item.count)
-                                           }]}
-                                           type="bar"
-                                           height={350}
-                                       />
-                                   </div>
-                               </CardContent>
-                           </Card>
-
-                           <Card>
-                               <CardHeader>
-                                   <CardTitle className="text-base font-semibold">
-                                       Thống kê báo giá
-                                   </CardTitle>
-                               </CardHeader>
-                               <CardContent>
-                                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                                       <div className="bg-blue-50 p-4 rounded-lg">
-                                           <p className="text-sm text-blue-600 font-medium">
-                                               Tổng số báo giá
-                                           </p>
-                                           <p className="text-xl font-bold mt-1">
-                                               {analyticsData.quoteStats.total}
-                                           </p>
-                                       </div>
-                                       <div className="bg-green-50 p-4 rounded-lg">
-                                           <p className="text-sm text-green-600 font-medium">
-                                               Tỷ lệ thành công
-                                           </p>
-                                           <p className="text-xl font-bold mt-1">
-                                               {analyticsData.quoteStats.successRate?.toFixed(1)}%
-                                           </p>
-                                       </div>
-                                       <div className="bg-orange-50 p-4 rounded-lg">
-                                           <p className="text-sm text-orange-600 font-medium">
-                                               Giá trị trung bình
-                                           </p>
-                                           <p className="text-xl font-bold mt-1">
-                                               {formatCurrency(analyticsData.quoteStats.averageValue)}
-                                           </p>
-                                       </div>
-                                   </div>
-                                   
-                                   <div className="h-40">
-                                       <ReactApexChart 
-                                           options={chartOptions.quoteDistribution}
-                                           series={[
-                                               analyticsData.quoteStats.accepted,
-                                               analyticsData.quoteStats.total - analyticsData.quoteStats.accepted
-                                           ]}
-                                           type="donut"
-                                           height={160}
-                                       />
-                                   </div>
-                               </CardContent>
-                           </Card>
-                       </>
-                   )}
-               </div>
-
-               <Card>
-                   <CardHeader>
-                       <CardTitle className="text-base font-semibold">
-                           Cuộc hẹn và lịch trình
-                       </CardTitle>
-                   </CardHeader>
-                   <CardContent>
-                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                           <div className="bg-indigo-50 p-4 rounded-lg">
-                               <p className="text-sm text-indigo-600 font-medium">
-                                   Tổng số cuộc hẹn
-                               </p>
-                               <p className="text-xl font-bold mt-1">
-                                   {stats?.appointments || 0}
-                               </p>
-                           </div>
-                           <div className="bg-green-50 p-4 rounded-lg">
-                               <p className="text-sm text-green-600 font-medium">
-                                   Tỷ lệ thành công
-                               </p>
-                               <p className="text-xl font-bold mt-1">
-                                   {allData ? 
-                                       ((allData.appointments.filter(a => a.status === 'Completed').length / 
-                                         allData.appointments.length) * 100).toFixed(1) + '%' : '0%'}
-                               </p>
-                           </div>
-                           <div className="bg-green-50 p-4 rounded-lg">
-                               <p className="text-sm text-green-600 font-medium">
-                                   Tỷ lệ thành công
-                               </p>
-                               <p className="text-xl font-bold mt-1">
-                                   {allData ? 
-                                       ((allData.appointments.filter(a => a.status === 'Completed').length / 
-                                         allData.appointments.length) * 100).toFixed(1) + '%' : '0%'}
-                               </p>
-                           </div>
-                           <div className="bg-yellow-50 p-4 rounded-lg">
-                               <p className="text-sm text-yellow-600 font-medium">
-                                   Cuộc hẹn sắp tới
-                               </p>
-                               <p className="text-xl font-bold mt-1">
-                                   {allData ? 
-                                       allData.appointments.filter(a => 
-                                           a.status === 'Scheduled' && 
-                                           a.date > new Date()).length : 0}
-                               </p>
-                           </div>
-                       </div>
-                   </CardContent>
-               </Card>
-           </div>
-       </div>
-   );
-};
-
-export default CRMDashboard;
+export default MenuStructurePage;
