@@ -38,7 +38,7 @@ export const dashboardMenuItems = [
             {
                 text: 'APP HCNS',
                 icon: Home,
-                path: 'https://www.appsheet.com/start/f0dd0d6d-ecff-43d2-955e-f1043372dcf3',
+                path: 'https://www.appsheet.com/start/f0dd0d6d-ecff-43d2-955e-f1043372dcf3?platform=desktop',
                 description: 'WOWS HÀNH CHÍNH NHÂN SỰ',
                 count: 0,
                 isExternal: true,
@@ -50,6 +50,14 @@ export const dashboardMenuItems = [
                 description: 'Chấm công',
                 count: 0,
                 isExternal: true,
+                permissions: { PhanQuyen: ["All"] }
+            },
+            {
+                text: 'Công việc',
+                icon: Home,
+                path: '/task',
+                description: 'Công việc demo',
+                count: 0,
                 permissions: { PhanQuyen: ["All"] }
             }
         ]
@@ -83,6 +91,20 @@ export const dashboardMenuItems = [
                     Phong: ["Giám đốc"],
                 }
             },
+            {
+                text: 'Ghi nhận',
+                icon: ChartPie,
+                path: '/ghinhan',
+                description: 'Ghi nhận',
+                permissions: { PhanQuyen: ["All"] }
+            },
+            {
+                text: 'Thống kê',
+                icon: ChartPie,
+                path: '/thongke',
+                description: 'Thống kê',
+                permissions: { PhanQuyen: ["All"] }
+            }
         ]
     },
     {

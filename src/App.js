@@ -19,6 +19,8 @@ import CSKHCalendar from './pages/CSKHCalendar';
 import TaskManagement from './pages/TaskManagement';
 import PhanBoDT from './pages/PhanBoDT';
 import PhanBoDTview from './pages/PhanBoDTview';
+import GhiNhanPage from './pages/GhiNhanPage';
+import ThongKePage from './pages/ThongKePage';
 
 
 // Protected Route Component
@@ -61,6 +63,8 @@ function App() {
                   <Route path="/PhanBoDT" element={<PhanBoDT />} />
                   <Route path="/cskh-calendar" element={<CSKHCalendar />} />
                   <Route path="/PhanBoDTview" element={<PhanBoDTview />} />
+                  <Route path="/ghinhan" element={<GhiNhanPage />} />
+                  <Route path="/thongke" element={<ThongKePage />} />
 
 
 

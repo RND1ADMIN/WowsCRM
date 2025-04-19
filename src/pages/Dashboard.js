@@ -73,7 +73,7 @@ const MenuStructurePage = () => {
     const totalItemsShown = filteredItems.reduce((total, group) => total + group.filteredItems.length, 0);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-5 mt-14">
             {/* Khu vực tìm kiếm và lọc */}
             <div className="bg-white p-4 mb-4 rounded-lg shadow-sm border">
                 <div className="flex flex-col md:flex-row gap-3 mb-2">
@@ -168,7 +168,7 @@ const MenuStructurePage = () => {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                                     {group.filteredItems.map((item, index) => {
                                         const Icon = item.icon;
                                         return (
