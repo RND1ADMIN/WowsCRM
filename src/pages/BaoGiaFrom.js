@@ -1,374 +1,349 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  Plus, Edit, Trash, Search, Filter, Image, X, Upload, 
-  ChevronDown, ChevronLeft, ChevronRight, Save, Printer, 
-  Menu, BarChart, ChevronsLeft, ChevronsRight 
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Plus, Edit, Trash, Search, X, Upload, ChevronDown, ChevronLeft, ChevronRight,
+  Info, Calculator, Save, List, Filter, ShoppingCart, Check, File, FileText
 } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
 
-const BaoGiaFrom = () => {
-  // Trạng thái cho danh mục hàng hóa
-  const [dmhhItems, setDmhhItems] = useState([]);
-  const [filteredDmhhItems, setFilteredDmhhItems] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('TẤT CẢ');
-  const [categories, setCategories] = useState([]);
-  const [showAllCategories, setShowAllCategories] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
 
-  // Trạng thái cho thông tin báo giá
+const QuoteSystem = () => {
+  // State cho danh sách hàng hóa
+  const [items, setItems] = useState([]);
+  const [editingItemIndex, setEditingItemIndex] = useState(-1);
+  
+  // State cho thông tin báo giá
   const [quoteInfo, setQuoteInfo] = useState({
-    quoteId: '',
+    id: '',
     companyId: '',
-    quoteDate: new Date().toISOString().split('T')[0],
-    contractNumber: '',
-    quoteDuration: '30',
+    companyName: '',
+    companyShortName: '',
+    companyTaxCode: '',
+    date: new Date().toISOString().split('T')[0],
+    duration: '30',
     sessionCount: '',
+    vatRate: '10',
+    maintenanceFee: '1000000',
+    publicAppFee: '500000'
   });
-
-  // Trạng thái cho các mục trong báo giá
-  const [quoteItems, setQuoteItems] = useState([]);
+  
+  // State cho sidebar
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // State cho form thêm hàng hóa
+  const [showAddItemForm, setShowAddItemForm] = useState(false);
   const [currentItem, setCurrentItem] = useState({
     code: '',
     name: '',
     detail: '',
     unit: 'Cái',
     price: '',
-    quantity: '1',
-    discountPercent: '0',
-    showToCustomer: true,
-    note: '',
+    quantity: '',
+    discount: '',
+    note: ''
   });
-
-  // Trạng thái cho form thêm mục
-  const [showAddItemForm, setShowAddItemForm] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editingItemIndex, setEditingItemIndex] = useState(-1);
-
-  // Trạng thái cho thanh toán
-  const [paymentInfo, setPaymentInfo] = useState({
-    vatRate: '10',
-    maintenanceFee: '1000000',
-    publicAppFee: '500000',
-  });
-
-  // Trạng thái tổng hợp
-  const [totals, setTotals] = useState({
-    totalBeforeDiscount: 0,
-    totalDiscount: 0,
-    totalAfterDiscount: 0,
-    vatAmount: 0,
-    grandTotal: 0,
-  });
-
-  // Trạng thái loading
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isPrinting, setIsPrinting] = useState(false);
-
+  
+  // State cho danh mục sản phẩm
+  const [productCatalog, setProductCatalog] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState(['all']);
+  const [companyList, setCompanyList] = useState([]);
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  
   // Refs
-  const sidebarRef = useRef(null);
-  const printFrameRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const navigate = useNavigate();
+  
+  // API configs
+  const APP_ID = "fa999040-d473-49aa-b948-6b86007a0041";
+  const API_KEY = "V2-AJHhE-w3Tb3-Vma6U-HTB3a-CSA9s-ydUin-fEC1Q-rNUWW";
 
-  // Kiểm tra kích thước màn hình
+  // Effect hooks
   useEffect(() => {
-    const checkScreenSize = () => {
-      setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth < 768) {
-        setShowSidebar(false);
-      } else {
-        setShowSidebar(true);
-      }
-    };
-
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    return () => window.removeEventListener('resize', checkScreenSize);
+    // Tải danh sách sản phẩm khi component được render
+    fetchProductCatalog();
+    
+    // Tải danh sách công ty
+    fetchCompanyList();
+    
+    // Kiểm tra dữ liệu đã lưu
+    checkSavedQuote();
+    
+    // Generate ID
+    generateQuoteId();
   }, []);
+  
+  useEffect(() => {
+    // Apply filter khi danh sách sản phẩm hoặc bộ lọc thay đổi
+    applyProductFilters();
+  }, [productCatalog, searchTerm, selectedCategories]);
 
-  // Fetch danh mục hàng hóa
-  const fetchDMHH = async () => {
+  // Fetch danh mục sản phẩm
+  const fetchProductCatalog = async () => {
     try {
-      setIsLoading(true);
-      const response = await authUtils.apiRequest('DMHH', 'Find', {});
-      
-      const formattedItems = response.map(item => ({
-        code: item['Ma_HHDV'] || '',
-        name: item['TÊN HH DV'] || '',
-        detail: item['CHI TIẾT'] || '',
-        unit: item['DVT'] || '',
-        category: item['PHÂN LOẠI'] || '',
-        subCategory: item['PHÂN LOẠI DT'] || '',
-        supplier: item['NCC ƯU TIÊN'] || '',
-        price: parseFloat(item['GIÁ BÁN']) || 0,
-        buyPrice: parseFloat(item['GIÁ MUA']) || 0,
-        image: item['HÌNH ẢNH'] || ''
-      }));
-      
-      setDmhhItems(formattedItems);
-      setFilteredDmhhItems(formattedItems);
-      
-      // Lấy danh sách phân loại
-      const uniqueCategories = [...new Set(formattedItems
-        .map(item => item.category)
-        .filter(Boolean))];
-      setCategories(uniqueCategories);
-      
-      setIsLoading(false);
+      const response = await authUtils.apiRequest('DMHH', 'Find', {
+        Properties: {
+          Locale: "vi-VN",
+          Timezone: "Asia/Ho_Chi_Minh",
+          Selector: "Filter(DMHH, true)"
+        }
+      });
+
+      if (response) {
+        const formattedProducts = response.map(row => ({
+          code: row["Ma_HHDV"] || '',
+          name: row["TÊN HH DV"] || '',
+          detail: row["CHI TIẾT"] || '',
+          unit: row["DVT"] || '',
+          category: row["PHÂN LOẠI"] || '',
+          subCategory: row["PHÂN LOẠI DT"] || '',
+          supplier: row["NCC ƯU TIÊN"] || '',
+          price: parseFloat(row["GIÁ BÁN"]) || 0,
+          image: row["HÌNH ẢNH"] || ''
+        }));
+        
+        setProductCatalog(formattedProducts);
+        setFilteredProducts(formattedProducts);
+      } else {
+        // Dữ liệu mẫu khi không có API
+        setProductCatalog(getSampleProducts());
+        setFilteredProducts(getSampleProducts());
+      }
     } catch (error) {
-      console.error('Error fetching DMHH:', error);
-      toast.error('Lỗi khi tải danh mục hàng hóa');
-      setIsLoading(false);
+      console.error('Lỗi khi tải danh mục hàng hóa:', error);
+      // Dữ liệu mẫu khi API lỗi
+      setProductCatalog(getSampleProducts());
+      setFilteredProducts(getSampleProducts());
     }
   };
 
-  useEffect(() => {
-    fetchDMHH();
-    // Load từ localStorage nếu có
-    const savedQuote = localStorage.getItem('savedQuote');
-    if (savedQuote) {
-      try {
-        const quoteData = JSON.parse(savedQuote);
-        if (window.confirm('Phát hiện báo giá đã lưu. Bạn có muốn nạp lại không?')) {
-          loadSavedQuote(quoteData);
+  // Fetch danh sách công ty
+  const fetchCompanyList = async () => {
+    try {
+      const response = await authUtils.apiRequest('KHTN', 'Find', {
+        Properties: {
+          Locale: "vi-VN",
+          Timezone: "Asia/Ho_Chi_Minh",
+          Selector: "Filter(KHTN, true)"
         }
-      } catch (error) {
-        console.error('Error loading saved quote:', error);
+      });
+
+      if (response) {
+        const formattedCompanies = response.map(row => ({
+          id: row["ID_CTY"] || '',
+          name: row["TÊN CÔNG TY"] || '',
+          shortName: row["TÊN VIẾT TẮT"] || '',
+          email: row["EMAIL CÔNG TY"] || '',
+          taxCode: row["MST"] || ''
+        }));
+        
+        setCompanyList(formattedCompanies);
+      } else {
+        // Dữ liệu mẫu khi không có API
+        setCompanyList(getSampleCompanies());
       }
+    } catch (error) {
+      console.error('Lỗi khi tải danh sách công ty:', error);
+      // Dữ liệu mẫu khi API lỗi
+      setCompanyList(getSampleCompanies());
     }
-  }, []);
+  };
 
-  // Lọc danh mục hàng hóa khi tìm kiếm hoặc chọn danh mục
-  useEffect(() => {
-    filterDmhhItems();
-  }, [searchTerm, selectedCategory, dmhhItems]);
-
-  const filterDmhhItems = () => {
-    let filtered = [...dmhhItems];
+  // Functions for filters
+  const applyProductFilters = () => {
+    let results = [...productCatalog];
     
-    // Lọc theo từ khóa tìm kiếm
-    if (searchTerm) {
-      const normalizedSearch = normalizeString(searchTerm.toLowerCase());
-      filtered = filtered.filter(item => 
-        normalizeString(item.code.toLowerCase()).includes(normalizedSearch) ||
-        normalizeString(item.name.toLowerCase()).includes(normalizedSearch) ||
-        normalizeString(item.detail.toLowerCase()).includes(normalizedSearch)
+    // Apply category filter
+    if (!selectedCategories.includes('all')) {
+      results = results.filter(product => 
+        selectedCategories.includes(product.category)
       );
     }
     
-    // Lọc theo phân loại
-    if (selectedCategory !== 'TẤT CẢ') {
-      filtered = filtered.filter(item => item.category === selectedCategory);
+    // Apply search filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      results = results.filter(product =>
+        product.code.toLowerCase().includes(term) ||
+        product.name.toLowerCase().includes(term) ||
+        (product.category && product.category.toLowerCase().includes(term))
+      );
     }
     
-    setFilteredDmhhItems(filtered);
+    setFilteredProducts(results);
   };
 
-  // Hàm chuẩn hóa chuỗi tiếng Việt
-  const normalizeString = (str) => {
-    if (!str) return '';
-    return str
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/đ/g, 'd')
-      .replace(/Đ/g, 'D');
-  };
-
-  // Xử lý chọn phân loại
-  const handleCategorySelect = (category) => {
-    setSelectedCategory(category);
-  };
-
-  // Cập nhật tổng tiền khi danh sách mục thay đổi
-  useEffect(() => {
-    updateTotals();
-  }, [quoteItems, paymentInfo]);
-
-  // Hàm cập nhật tổng tiền
-  const updateTotals = () => {
-    const totalBeforeDiscount = quoteItems.reduce((total, item) => total + item.subtotal, 0);
-    const totalDiscount = quoteItems.reduce((total, item) => total + item.discountAmount, 0);
-    const totalAfterDiscount = quoteItems.reduce((total, item) => total + item.afterDiscount, 0);
-    
-    const vatRate = parseFloat(paymentInfo.vatRate) || 0;
-    const vatAmount = totalAfterDiscount * (vatRate / 100);
-    
-    const maintenanceFee = parseFloat(paymentInfo.maintenanceFee) || 0;
-    const publicAppFee = parseFloat(paymentInfo.publicAppFee) || 0;
-    
-    const grandTotal = totalAfterDiscount + vatAmount + maintenanceFee + publicAppFee;
-    
-    setTotals({
-      totalBeforeDiscount,
-      totalDiscount,
-      totalAfterDiscount,
-      vatAmount,
-      grandTotal
-    });
-  };
-
-  // Xử lý khi chọn sản phẩm từ danh mục
-  const handleProductSelect = (product) => {
-    if (isMobile) {
-      setShowSidebar(false);
+  const handleCategoryFilter = (category) => {
+    if (category === 'all') {
+      setSelectedCategories(['all']);
+    } else {
+      // Deselect "all" if it's currently selected
+      const newSelection = selectedCategories.includes('all') 
+        ? [category] 
+        : selectedCategories.includes(category)
+          ? selectedCategories.filter(c => c !== category) // remove if already selected
+          : [...selectedCategories, category]; // add if not selected
+      
+      // If empty, select "all" again
+      setSelectedCategories(newSelection.length === 0 ? ['all'] : newSelection);
     }
-    
-    setShowAddItemForm(true);
-    setCurrentItem({
-      code: product.code,
-      name: product.name,
-      detail: product.detail || '',
-      unit: product.unit || 'Cái',
-      price: product.price,
-      quantity: '1',
-      discountPercent: '0',
-      showToCustomer: true,
-      note: '',
-    });
-    
-    setIsEditMode(false);
-    setEditingItemIndex(-1);
   };
 
-  // Xử lý thay đổi thông tin báo giá
-  const handleQuoteInfoChange = (e) => {
-    const { id, value } = e.target;
+  // Get unique categories from products
+  const getUniqueCategories = () => {
+    const categories = new Set();
+    productCatalog.forEach(product => {
+      if (product.category) {
+        categories.add(product.category);
+      }
+    });
+    return Array.from(categories);
+  };
+
+  // Handler functions
+  const handleQuoteInfoChange = (field, value) => {
     setQuoteInfo(prev => ({
       ...prev,
-      [id]: value
+      [field]: value
     }));
   };
 
-  // Xử lý thay đổi thông tin mục
-  const handleItemChange = (e) => {
-    const { id, value, type, checked } = e.target;
-    
-    setCurrentItem(prev => ({
-      ...prev,
-      [id]: type === 'checkbox' ? checked : value
-    }));
+  const handleItemChange = (field, value) => {
+    setCurrentItem(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // Calculate values based on price, quantity and discount
+      if (field === 'price' || field === 'quantity' || field === 'discount') {
+        const price = parseFloat(updated.price) || 0;
+        const quantity = parseInt(updated.quantity) || 0;
+        const discount = parseFloat(updated.discount) || 0;
+        
+        updated.subtotal = price * quantity;
+        updated.discountAmount = updated.subtotal * (discount / 100);
+        updated.afterDiscount = updated.subtotal - updated.discountAmount;
+      }
+      
+      return updated;
+    });
   };
 
-  // Xử lý thay đổi thông tin thanh toán
-  const handlePaymentInfoChange = (e) => {
-    const { id, value } = e.target;
-    setPaymentInfo(prev => ({
-      ...prev,
-      [id]: value
-    }));
-  };
-
-  // Tìm sản phẩm theo mã
-  const handleSearchProduct = () => {
-    const code = currentItem.code;
-    if (!code) {
-      toast.warning('Vui lòng nhập mã hàng hóa để tìm kiếm');
-      return;
-    }
-    
-    const product = dmhhItems.find(item => item.code === code);
-    if (product) {
-      setCurrentItem(prev => ({
-        ...prev,
-        name: product.name,
-        detail: product.detail || '',
-        unit: product.unit || 'Cái',
-        price: product.price,
-        quantity: '1',
-        discountPercent: '0',
-      }));
-    } else {
-      toast.error('Không tìm thấy mã hàng hóa này');
-    }
-  };
-
-  // Xử lý thêm hoặc cập nhật mục vào báo giá
-  const handleAddOrUpdateItem = () => {
-    const { code, name, detail, unit, price, quantity, discountPercent, showToCustomer, note } = currentItem;
-    
-    // Kiểm tra dữ liệu
-    if (!code || !name || !price || !quantity) {
+  const handleAddItem = () => {
+    if (!currentItem.code || !currentItem.name || !currentItem.price || !currentItem.quantity) {
       toast.error('Vui lòng điền đầy đủ thông tin hàng hóa (Mã, Tên, Giá, Số lượng)');
       return;
     }
     
-    // Tính toán giá trị
-    const priceValue = parseFloat(price) || 0;
-    const quantityValue = parseInt(quantity) || 0;
-    const discountPercentValue = parseFloat(discountPercent) || 0;
+    const price = parseFloat(currentItem.price) || 0;
+    const quantity = parseInt(currentItem.quantity) || 0;
+    const discountPercent = parseFloat(currentItem.discount) || 0;
     
-    const subtotal = priceValue * quantityValue;
-    const discountAmount = subtotal * (discountPercentValue / 100);
+    const subtotal = price * quantity;
+    const discountAmount = subtotal * (discountPercent / 100);
     const afterDiscount = subtotal - discountAmount;
     
     const newItem = {
-      code,
-      name,
-      detail,
-      unit,
-      price: priceValue,
-      quantity: quantityValue,
-      subtotal,
-      discountPercent: discountPercentValue,
-      discountAmount,
-      afterDiscount,
-      showToCustomer,
-      note
+      code: currentItem.code,
+      name: currentItem.name,
+      detail: currentItem.detail,
+      unit: currentItem.unit,
+      price: price,
+      quantity: quantity,
+      subtotal: subtotal,
+      discountPercent: discountPercent,
+      discountAmount: discountAmount,
+      afterDiscount: afterDiscount,
+      note: currentItem.note
     };
     
-    if (isEditMode && editingItemIndex >= 0) {
-      // Cập nhật mục đã có
-      const updatedItems = [...quoteItems];
+    if (editingItemIndex >= 0) {
+      // Update existing item
+      const updatedItems = [...items];
       updatedItems[editingItemIndex] = newItem;
-      setQuoteItems(updatedItems);
-      toast.success('Đã cập nhật hàng hóa');
+      setItems(updatedItems);
+      toast.success('Đã cập nhật hàng hóa thành công');
     } else {
-      // Thêm mục mới
-      setQuoteItems(prev => [...prev, newItem]);
-      toast.success('Đã thêm hàng hóa vào báo giá');
+      // Add new item
+      setItems(prev => [...prev, newItem]);
+      toast.success('Đã thêm hàng hóa thành công');
     }
     
-    // Đóng form và reset
-    setShowAddItemForm(false);
-    setIsEditMode(false);
-    setEditingItemIndex(-1);
+    // Reset form and hide it
     resetItemForm();
+    setShowAddItemForm(false);
+    setEditingItemIndex(-1);
   };
 
-  // Xử lý xóa mục
   const handleDeleteItem = (index) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa hàng hóa này không?')) {
-      const updatedItems = quoteItems.filter((_, idx) => idx !== index);
-      setQuoteItems(updatedItems);
-      toast.success('Đã xóa hàng hóa');
+      const newItems = [...items];
+      newItems.splice(index, 1);
+      setItems(newItems);
+      toast.success('Đã xóa hàng hóa thành công');
     }
   };
 
-  // Xử lý chỉnh sửa mục
   const handleEditItem = (index) => {
-    const item = quoteItems[index];
-    
+    const item = items[index];
     setCurrentItem({
       code: item.code,
       name: item.name,
       detail: item.detail || '',
       unit: item.unit,
-      price: item.price.toString(),
-      quantity: item.quantity.toString(),
-      discountPercent: item.discountPercent.toString(),
-      showToCustomer: item.showToCustomer,
-      note: item.note || ''
+      price: item.price,
+      quantity: item.quantity,
+      discount: item.discountPercent,
+      note: item.note || '',
+      subtotal: item.subtotal,
+      discountAmount: item.discountAmount,
+      afterDiscount: item.afterDiscount
     });
     
-    setShowAddItemForm(true);
-    setIsEditMode(true);
     setEditingItemIndex(index);
+    setShowAddItemForm(true);
   };
 
-  // Reset form thêm mục
+  const handleSelectCompany = (company) => {
+    setQuoteInfo(prev => ({
+      ...prev,
+      companyId: company.id,
+      companyName: company.name,
+      companyShortName: company.shortName,
+      companyTaxCode: company.taxCode
+    }));
+    
+    setShowCompanyModal(false);
+    toast.success('Đã chọn công ty thành công');
+  };
+
+  const handleAddProductToQuote = (product) => {
+    const newItem = {
+      code: product.code,
+      name: product.name,
+      detail: product.detail || '',
+      unit: product.unit,
+      price: product.price,
+      quantity: 1,
+      subtotal: product.price * 1,
+      discountPercent: 0,
+      discountAmount: 0,
+      afterDiscount: product.price * 1,
+      note: ''
+    };
+    
+    setItems(prev => [...prev, newItem]);
+    toast.success('Đã thêm hàng hóa vào báo giá');
+    
+    // Close sidebar on mobile
+    if (window.innerWidth < 768) {
+      setMobileMenuOpen(false);
+    }
+  };
+
+  // Helper functions
   const resetItemForm = () => {
     setCurrentItem({
       code: '',
@@ -376,546 +351,568 @@ const BaoGiaFrom = () => {
       detail: '',
       unit: 'Cái',
       price: '',
-      quantity: '1',
-      discountPercent: '0',
-      showToCustomer: true,
+      quantity: '',
+      discount: '',
       note: '',
+      subtotal: 0,
+      discountAmount: 0,
+      afterDiscount: 0
     });
   };
 
-  // Định dạng tiền tệ
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('vi-VN').format(value);
+  const generateQuoteId = () => {
+    const prefix = 'BG';
+    const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    const today = new Date();
+    const dateStr = today.getFullYear().toString().substr(-2) +
+        (today.getMonth() + 1).toString().padStart(2, '0');
+    
+    setQuoteInfo(prev => ({
+      ...prev,
+      id: `${prefix}${dateStr}-${randomNum}`
+    }));
   };
 
-  // Lưu báo giá
+  const calculateTotals = () => {
+    let totalBeforeDiscount = 0;
+    let totalDiscount = 0;
+    let totalAfterDiscount = 0;
+    
+    items.forEach(item => {
+      totalBeforeDiscount += item.subtotal;
+      totalDiscount += item.discountAmount;
+      totalAfterDiscount += item.afterDiscount;
+    });
+    
+    const vatRate = parseFloat(quoteInfo.vatRate);
+    const vatAmount = totalAfterDiscount * (vatRate / 100);
+    const maintenanceFee = parseFloat(quoteInfo.maintenanceFee) || 0;
+    const publicAppFee = parseFloat(quoteInfo.publicAppFee) || 0;
+    const grandTotal = totalAfterDiscount + vatAmount + maintenanceFee + publicAppFee;
+    
+    return {
+      totalBeforeDiscount,
+      totalDiscount,
+      totalAfterDiscount,
+      vatAmount,
+      grandTotal,
+      maintenanceFee,
+      publicAppFee
+    };
+  };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('vi-VN').format(amount);
+  };
+
   const handleSaveQuote = async () => {
-    if (quoteItems.length === 0) {
-      toast.warning('Vui lòng thêm ít nhất một hàng hóa/dịch vụ vào báo giá');
+    if (items.length === 0) {
+      toast.error('Vui lòng thêm ít nhất một hàng hóa/dịch vụ vào báo giá');
       return;
     }
     
-    if (!quoteInfo.quoteId || !quoteInfo.companyId) {
-      toast.warning('Vui lòng điền đầy đủ thông tin báo giá (ID, Công ty)');
+    if (!quoteInfo.id || !quoteInfo.companyId || !quoteInfo.date) {
+      toast.error('Vui lòng điền đầy đủ thông tin báo giá (ID, Công ty, Ngày báo giá)');
       return;
     }
     
+    // Save to localStorage for demo
+    const quoteData = {
+      ...quoteInfo,
+      items: items
+    };
+    
+    localStorage.setItem('savedQuote', JSON.stringify(quoteData));
+    
+    // Simulate API call
     try {
-      setIsSaving(true);
-      
-      // Thu thập dữ liệu báo giá
-      const quoteData = {
-        ...quoteInfo,
-        vatRate: paymentInfo.vatRate,
-        maintenanceFee: paymentInfo.maintenanceFee,
-        publicAppFee: paymentInfo.publicAppFee,
-        items: quoteItems,
-        totals: totals
-      };
-      
-      // Lưu vào localStorage
-      localStorage.setItem('savedQuote', JSON.stringify(quoteData));
-      
-      // Chuẩn bị dữ liệu cho bảng PO
-      const poData = {
-        "ID_BBGTH": quoteInfo.quoteId,
-        "ID_CTY": quoteInfo.companyId,
-        "NGÀY BÁO GIÁ": quoteInfo.quoteDate,
-        "SỐ HĐ": quoteInfo.contractNumber,
-        "ƯU ĐÃI": totals.totalBeforeDiscount > 0 ? (totals.totalDiscount / totals.totalBeforeDiscount) * 100 : 0,
-        "TT TRƯỚC ƯU ĐÃI": totals.totalBeforeDiscount,
-        "TT ƯU ĐÃI": totals.totalDiscount,
-        "TT SAU ƯU ĐÃI": totals.totalAfterDiscount,
-        "PT VAT": parseFloat(paymentInfo.vatRate),
-        "TT VAT": totals.vatAmount,
-        "TT SAU VAT": totals.totalAfterDiscount + totals.vatAmount,
-        "THỜI HẠN BÁO GIÁ": calculateExpirationDate(quoteInfo.quoteDate, quoteInfo.quoteDuration),
-        "SỐ BUỔI": parseInt(quoteInfo.sessionCount) || 0,
-        "THỜI HẠN": parseInt(quoteInfo.quoteDuration) || 0,
-        "CHI PHÍ": 0,
-        "PHÍ DUY TRÌ": parseFloat(paymentInfo.maintenanceFee) || 0,
-        "PHÍ PUBLIC APP": parseFloat(paymentInfo.publicAppFee) || 0,
-        "TỔNG TIỀN": totals.grandTotal
-      };
-      
-      // Gửi dữ liệu đến API
-      await authUtils.apiRequest('PO', 'Add', {
-        "Rows": [poData]
-      });
-      
-      // Chuẩn bị chi tiết báo giá cho bảng PO_DE
-      const poDetailRows = quoteItems.map((item, index) => {
-        const vatRate = parseFloat(paymentInfo.vatRate) || 0;
-        const itemVatAmount = item.afterDiscount * (vatRate / 100);
-        
-        return {
-          "ID_BBGTH_DE": `${quoteInfo.quoteId}_${index + 1}`,
-          "ID_BBGTH": quoteInfo.quoteId,
-          "Ma_HHDV": item.code,
-          "TÊN HH DV": item.name,
-          "CHI TIẾT": item.detail || "",
-          "DVT": item.unit,
-          "GIÁ BÁN": item.price,
-          "SỐ LƯỢNG": item.quantity,
-          "THÀNH TIỀN": item.subtotal,
-          "PT ƯU ĐÃI": item.discountPercent,
-          "SỐ TIỀN ƯU ĐÃI": item.discountAmount,
-          "GIÁ TRỊ SAU ƯU ĐÃI": item.afterDiscount,
-          "PT VAT": vatRate,
-          "TIỀN VAT": itemVatAmount,
-          "GIÁ TRỊ SAU VAT": item.afterDiscount + itemVatAmount,
-          "GHI CHÚ": item.note || ""
-        };
-      });
-      
-      await authUtils.apiRequest('PO_DE', 'Add', {
-        "Rows": poDetailRows
-      });
-      
       toast.success('Đã lưu báo giá thành công!');
+      
+   
+      await authUtils.apiRequest('BAOGIA', 'Add', {
+        Properties: {
+          Locale: "vi-VN",
+          Timezone: "Asia/Ho_Chi_Minh"
+      },
+        Rows: [quoteData]
+      });
+      
     } catch (error) {
-      console.error('Error saving quote:', error);
-      toast.error('Có lỗi xảy ra khi lưu báo giá: ' + error.message);
-    } finally {
-      setIsSaving(false);
+      console.error('Lỗi khi lưu báo giá:', error);
+      toast.error('Có lỗi xảy ra khi lưu báo giá. Vui lòng thử lại.');
     }
   };
 
-  // Tính toán ngày hết hạn
-  const calculateExpirationDate = (dateStr, days) => {
-    const date = new Date(dateStr);
-    date.setDate(date.getDate() + parseInt(days) || 0);
-    return date.toISOString().split('T')[0];
+  const handleSearchProduct = () => {
+    const code = currentItem.code;
+    if (!code) {
+      toast.warning('Vui lòng nhập mã hàng hóa để tìm kiếm');
+      return;
+    }
+    
+    const product = productCatalog.find(p => p.code === code);
+    if (product) {
+      setCurrentItem(prev => ({
+        ...prev,
+        name: product.name,
+        detail: product.detail || '',
+        unit: product.unit,
+        price: product.price,
+        quantity: prev.quantity || 1
+      }));
+    } else {
+      toast.error('Không tìm thấy mã hàng hóa này');
+    }
   };
 
+  const checkSavedQuote = () => {
+    const savedQuoteStr = localStorage.getItem('savedQuote');
+    if (savedQuoteStr) {
+      try {
+        const savedQuote = JSON.parse(savedQuoteStr);
+        if (window.confirm('Phát hiện báo giá đã lưu. Bạn có muốn nạp lại không?')) {
+          loadSavedQuote(savedQuote);
+          toast.success('Đã phục hồi báo giá thành công');
+        }
+      } catch (error) {
+        console.error('Lỗi khi nạp dữ liệu báo giá:', error);
+      }
+    }
+  };
 
-
-  
-// Nạp báo giá đã lưu
-const loadSavedQuote = (data) => {
-    if (!data) return;
+  const loadSavedQuote = (quoteData) => {
+    if (!quoteData) return;
     
-    // Nạp thông tin báo giá
     setQuoteInfo({
-      quoteId: data.quoteId || '',
-      companyId: data.companyId || '',
-      quoteDate: data.quoteDate || new Date().toISOString().split('T')[0],
-      contractNumber: data.contractNumber || '',
-      quoteDuration: data.quoteDuration || '30',
-      sessionCount: data.sessionCount || '',
+      id: quoteData.id || '',
+      companyId: quoteData.companyId || '',
+      companyName: quoteData.companyName || '',
+      companyShortName: quoteData.companyShortName || '',
+      companyTaxCode: quoteData.companyTaxCode || '',
+      date: quoteData.date || new Date().toISOString().split('T')[0],
+      duration: quoteData.duration || '30',
+      sessionCount: quoteData.sessionCount || '',
+      vatRate: quoteData.vatRate || '10',
+      maintenanceFee: quoteData.maintenanceFee || '1000000',
+      publicAppFee: quoteData.publicAppFee || '500000'
     });
     
-    // Nạp thông tin thanh toán
-    setPaymentInfo({
-      vatRate: data.vatRate || '10',
-      maintenanceFee: data.maintenanceFee || '0',
-      publicAppFee: data.publicAppFee || '0',
-    });
-    
-    // Nạp danh sách hàng hóa
-    setQuoteItems(data.items || []);
-    
-    toast.success('Đã nạp báo giá thành công!');
+    setItems(quoteData.items || []);
   };
 
-  // Tạo báo giá mẫu
-  const createDemoQuote = () => {
-    const demoItems = [
+  // Sample data
+  const getSampleProducts = () => {
+    return [
       {
         code: 'DV001',
-        name: 'Dịch vụ phát triển phần mềm',
-        detail: 'Thiết kế giao diện',
+        name: 'Dịch vụ phát triển website',
+        detail: 'Triển khai và cấu hình hệ thống',
         unit: 'Giờ',
-        price: 500000,
-        quantity: 10,
-        subtotal: 5000000,
-        discountPercent: 10,
-        discountAmount: 500000,
-        afterDiscount: 4500000,
-        showToCustomer: true,
-        note: ''
+        category: 'Dịch vụ',
+        price: 500000
       },
       {
-        code: 'DV002',
-        name: 'Dịch vụ tư vấn',
-        detail: 'Tư vấn giải pháp CNTT',
+        code: 'LIC001',
+        name: 'License phần mềm XYZ',
+        detail: 'Bản quyền phần mềm 1 năm',
+        unit: 'User',
+        category: 'License',
+        price: 1200000
+      },
+      {
+        code: 'DT001',
+        name: 'Khóa đào tạo CNTT',
+        detail: 'Đào tạo kỹ năng cho nhân viên',
         unit: 'Buổi',
-        price: 2000000,
-        quantity: 2,
-        subtotal: 4000000,
-        discountPercent: 5,
-        discountAmount: 200000,
-        afterDiscount: 3800000,
-        showToCustomer: true,
-        note: ''
+        category: 'Đào tạo',
+        price: 2000000
       }
     ];
-    
-    // Thiết lập thông tin báo giá mẫu
-    setQuoteInfo({
-      quoteId: 'BG' + new Date().getTime().toString().slice(-6),
-      companyId: 'CTY001',
-      quoteDate: new Date().toISOString().split('T')[0],
-      contractNumber: 'HD' + new Date().getFullYear() + '/' + Math.floor(Math.random() * 1000),
-      quoteDuration: '30',
-      sessionCount: '5',
-    });
-    
-    // Thêm hàng hóa mẫu
-    setQuoteItems(demoItems);
-    
-    toast.success('Đã tạo báo giá mẫu!');
   };
+
+  const getSampleCompanies = () => {
+    return [
+      {
+        id: 'CTY001',
+        name: 'Công ty TNHH Công Nghệ ABC',
+        shortName: 'ABC Tech',
+        email: 'info@abctech.com',
+        taxCode: '0123456789'
+      },
+      {
+        id: 'CTY002',
+        name: 'Công ty Cổ phần Phần mềm XYZ',
+        shortName: 'XYZ Software',
+        email: 'contact@xyzsoftware.com',
+        taxCode: '0987654321'
+      },
+      {
+        id: 'CTY003',
+        name: 'Công ty TNHH Giải pháp Công nghệ 123',
+        shortName: '123 Solutions',
+        email: 'info@123solutions.com',
+        taxCode: '1234567890'
+      }
+    ];
+  };
+
+  // Tính toán tổng giá trị
+  const totals = calculateTotals();
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
-      <header className="bg-blue-600 text-white shadow-lg sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            {/* Nút hiển thị sidebar cho thiết bị di động */}
-            <button 
-              className="mr-2 md:hidden text-white"
-              onClick={() => setShowSidebar(prev => !prev)}
-            >
-              <Menu className="h-6 w-6" />
-            </button>
-            <h1 className="text-xl font-bold">Hệ Thống Tạo Báo Giá</h1>
-          </div>
-          <div className="flex items-center space-x-4">
-            <button 
-              onClick={handleSaveQuote}
-              disabled={isSaving}
-              className="bg-white text-blue-600 px-4 py-2 rounded-lg font-medium hover:bg-blue-50 transition duration-300 flex items-center disabled:opacity-70"
-            >
-              {isSaving ? (
-                <>
-                  <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span className="hidden sm:inline">Đang lưu...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">Lưu</span>
-                </>
-              )}
-            </button>
-          
+      <header className="bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md sticky top-0 z-40">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => setMobileMenuOpen(true)}
+                className="mr-2 md:hidden text-white p-1 rounded-lg hover:bg-indigo-700"
+              >
+                <List className="h-5 w-5" />
+              </button>
+
+              <div className="flex items-center">
+                <i className="fas fa-file-invoice-dollar text-2xl mr-3"></i>
+                <h1 className="text-xl font-semibold">Hệ Thống Tạo Báo Giá</h1>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <button 
+                onClick={handleSaveQuote}
+                className="bg-white text-indigo-600 px-4 py-2 rounded-lg font-medium hover:bg-indigo-50 transition flex items-center"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Lưu báo giá</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content with Sidebar */}
       <div className="flex flex-grow relative">
-        {/* Overlay cho thiết bị di động khi sidebar mở */}
-        {isMobile && showSidebar && (
+        {/* Overlay for mobile */}
+        {mobileMenuOpen && (
           <div 
             className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
-            onClick={() => setShowSidebar(false)}
+            onClick={() => setMobileMenuOpen(false)}
           ></div>
         )}
 
         {/* Sidebar */}
-        <div
-          ref={sidebarRef}
-          className={`w-80 bg-white border-r border-gray-200 overflow-hidden transition-all duration-300 fixed md:sticky top-16 z-30 h-[calc(100vh-4rem)] ${
-            showSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        <div 
+          className={`w-72 bg-white border-r border-gray-200 overflow-hidden transition-all duration-300 fixed md:sticky top-16 z-30 h-[calc(100vh-4rem)] transform ${
+            mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
           }`}
         >
           <div className="p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
-            <h2 className="font-semibold text-gray-700">Danh Mục Hàng Hóa</h2>
-            <div className="flex items-center space-x-2">
+            <h2 className="font-semibold text-indigo-600">Danh Mục Hàng Hóa</h2>
+            <div className="flex items-center">
               <button 
-                className="text-gray-500 hover:text-gray-700 md:block hidden"
-                onClick={() => setShowSidebar(false)}
+                onClick={() => setSidebarOpen(false)}
+                className="text-gray-500 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100"
               >
-                <ChevronsLeft className="h-5 w-5" />
+                <ChevronLeft className="h-4 w-4" />
               </button>
               <button 
-                className="text-gray-500 hover:text-gray-700 md:hidden"
-                onClick={() => setShowSidebar(false)}
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-gray-500 hover:text-gray-700 md:hidden ml-2 p-1 rounded-lg hover:bg-gray-100"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          <div className="overflow-y-auto" style={{ height: 'calc(100vh - 9rem)' }}>
+          <div className="overflow-y-auto h-full pb-24">
             {/* Search Bar */}
             <div className="p-4 border-b border-gray-200">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
+                <input 
+                  type="text" 
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="Tìm kiếm hàng hóa..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
+                <Search className="h-4 w-4 absolute left-3 top-3.5 text-gray-400" />
               </div>
             </div>
 
-            {/* Product Categories */}
+            {/* Category Filters */}
             <div className="p-4 border-b border-gray-200">
-              <div 
-                className="flex justify-between items-center cursor-pointer"
-                onClick={() => setShowAllCategories(prev => !prev)}
-              >
-                <h3 className="font-medium text-sm text-gray-500 uppercase">Phân Loại</h3>
-                <button className="text-gray-500 focus:outline-none">
-                  <ChevronDown className={`h-4 w-4 transform ${showAllCategories ? 'rotate-180' : ''}`} />
+              <div className="flex justify-between items-center cursor-pointer">
+                <h3 className="font-medium text-sm text-gray-600 uppercase">Phân Loại</h3>
+                <button className="text-gray-500 focus:outline-none p-1 rounded-lg hover:bg-gray-100">
+                  <ChevronDown className="h-4 w-4" />
                 </button>
               </div>
-              <div className={`mt-2 ${showAllCategories ? 'max-h-96' : 'max-h-24'} overflow-y-auto transition-all duration-300`}>
+              <div className="mt-3 max-h-36 overflow-y-auto">
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => handleCategorySelect('TẤT CẢ')}
-                    className={`px-3 py-1 rounded-full text-sm ${
-                      selectedCategory === 'TẤT CẢ'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium shadow-sm ${
+                      selectedCategories.includes('all')
+                        ? 'bg-indigo-500 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
+                    onClick={() => handleCategoryFilter('all')}
                   >
                     Tất cả
                   </button>
-                  {categories.map((category) => (
+                  
+                  {getUniqueCategories().map(category => (
                     <button
                       key={category}
-                      onClick={() => handleCategorySelect(category)}
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        selectedCategory === category
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium shadow-sm ${
+                        selectedCategories.includes(category) && !selectedCategories.includes('all')
+                          ? 'bg-indigo-500 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
+                      onClick={() => handleCategoryFilter(category)}
                     >
                       {category}
                     </button>
                   ))}
-                </div>
-                <div 
-                  className="mt-2 text-xs text-blue-500 cursor-pointer"
-                  onClick={() => setShowAllCategories(true)}
-                >
-                  {!showAllCategories && (
-                    <span>Xem tất cả phân loại</span>
-                  )}
                 </div>
               </div>
             </div>
 
             {/* Product List */}
             <div className="p-4">
-              {isLoading ? (
-                <div className="flex justify-center py-8">
-                  <svg className="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                </div>
-              ) : (
-                <ul className="divide-y divide-gray-200">
-                  {filteredDmhhItems.length > 0 ? (
-                    filteredDmhhItems.map((product) => (
-                      <li 
-                        key={product.code}
-                        className="hover:bg-gray-50 cursor-pointer p-3"
-                        onClick={() => handleProductSelect(product)}
-                      >
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <div className="font-medium text-gray-900">{product.name}</div>
-                            <div className="text-sm text-gray-500">Mã: {product.code} | ĐVT: {product.unit}</div>
+              <h3 className="font-medium text-sm text-gray-600 uppercase mb-3">Hàng Hóa & Dịch Vụ</h3>
+              <div className="space-y-3">
+                {filteredProducts.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+                    <Search className="h-10 w-10 mb-3 text-gray-300" />
+                    <p>Không tìm thấy sản phẩm</p>
+                  </div>
+                ) : (
+                  filteredProducts.map(product => (
+                    <div key={product.code} className="card p-3 cursor-pointer product-item hover:border-indigo-200 border border-transparent">
+                      <div className="flex justify-between items-center">
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">{product.name}</div>
+                          <div className="text-sm text-gray-500 mt-1">
+                            Mã: {product.code} | ĐVT: {product.unit}
                           </div>
-                          <div className="font-medium text-blue-600">{formatCurrency(product.price)} đ</div>
+                          <div className="mt-1.5">
+                            {product.category && (
+                              <span className="badge badge-primary">{product.category}</span>
+                            )}
+                          </div>
                         </div>
-                      </li>
-                    ))
-                  ) : (
-                    <div className="text-center py-4 text-gray-500">
-                      {searchTerm ? 'Không tìm thấy hàng hóa phù hợp' : 'Không có hàng hóa trong danh mục'}
+                        <div className="font-medium text-indigo-600 text-lg">
+                          {formatCurrency(product.price)} đ
+                        </div>
+                      </div>
+                      <button
+                        className="mt-2 w-full text-sm bg-indigo-50 text-indigo-600 rounded-lg py-1.5 hover:bg-indigo-100 transition-colors"
+                        onClick={() => handleAddProductToQuote(product)}
+                      >
+                        <Plus className="h-3 w-3 inline mr-1" /> Thêm vào báo giá
+                      </button>
                     </div>
-                  )}
-                </ul>
-              )}
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Toggle button for collapsed sidebar */}
-        {!showSidebar && !isMobile && (
-          <button
+        {/* Collapsed sidebar toggle */}
+        {!sidebarOpen && (
+          <button 
             className="fixed left-0 top-1/2 transform -translate-y-1/2 bg-white p-2 rounded-r-lg shadow-md text-gray-500 hover:text-gray-700 border border-l-0 border-gray-200 z-10"
-            onClick={() => setShowSidebar(true)}
+            onClick={() => setSidebarOpen(true)}
           >
-            <ChevronsRight className="h-5 w-5" />
+            <ChevronRight className="h-4 w-4" />
           </button>
         )}
 
         {/* Main Content */}
         <main className="flex-grow w-full md:w-auto">
           <div className="container mx-auto px-4 py-6">
-            {/* Thông tin báo giá */}
-            <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-              <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
-                <BarChart className="mr-2 h-5 w-5 text-blue-500" />
-                Thông tin báo giá
-              </h2>
+            {/* Quote Information Card */}
+            <div className="card p-6 mb-6 fade-in">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold text-gray-800 flex items-center">
+                  <Info className="h-5 w-5 mr-2 text-indigo-500" />
+                  Thông tin báo giá
+                </h2>
+                <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                  <i className="fas fa-calendar-alt mr-1"></i>
+                  <span>{new Date().toLocaleDateString('vi-VN')}</span>
+                </div>
+              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">ID Báo giá</label>
-                  <input
-                    type="text"
-                    id="quoteId"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="ID_BBGTH"
-                    value={quoteInfo.quoteId}
-                    onChange={handleQuoteInfoChange}
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">ID Báo giá</label>
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      className="w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="ID_BBGTH"
+                      value={quoteInfo.id}
+                      onChange={(e) => handleQuoteInfoChange('id', e.target.value)}
+                    />
+                    <button 
+                      className="absolute right-2 top-2.5 text-indigo-500 hover:text-indigo-700"
+                      title="Tạo ID tự động"
+                      onClick={generateQuoteId}
+                    >
+                      <i className="fas fa-magic"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Tên công ty</label>
+                  <div className="flex">
+                    <input 
+                      type="text" 
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="Tên công ty"
+                      value={quoteInfo.companyName}
+                      onChange={(e) => handleQuoteInfoChange('companyName', e.target.value)}
+                    />
+                    <button 
+                      className="bg-indigo-500 text-white px-3 py-2.5 rounded-r-lg hover:bg-indigo-600 transition"
+                      onClick={() => setShowCompanyModal(true)}
+                    >
+                      <Search className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Ngày báo giá</label>
+                  <div className="relative">
+                    <input 
+                      type="date" 
+                      className="w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      value={quoteInfo.date}
+                      onChange={(e) => handleQuoteInfoChange('date', e.target.value)}
+                    />
+                    <i className="fas fa-calendar absolute right-3 top-3 text-gray-400 pointer-events-none"></i>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Tên viết tắt</label>
+                  <input 
+                    type="text" 
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none"
+                    placeholder="Tên viết tắt"
+                    value={quoteInfo.companyShortName}
+                    readOnly
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">ID Công ty</label>
-                  <input
-                    type="text"
-                    id="companyId"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="ID_CTY"
-                    value={quoteInfo.companyId}
-                    onChange={handleQuoteInfoChange}
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Mã số thuế</label>
+                  <input 
+                    type="text" 
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none"
+                    placeholder="Mã số thuế"
+                    value={quoteInfo.companyTaxCode}
+                    readOnly
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ngày báo giá</label>
-                  <input
-                    type="date"
-                    id="quoteDate"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={quoteInfo.quoteDate}
-                    onChange={handleQuoteInfoChange}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Số hợp đồng</label>
-                  <input
-                    type="text"
-                    id="contractNumber"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Số HĐ"
-                    value={quoteInfo.contractNumber}
-                    onChange={handleQuoteInfoChange}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Thời hạn báo giá (ngày)</label>
-                  <input
-                    type="number"
-                    id="quoteDuration"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Thời hạn báo giá (ngày)</label>
+                  <input 
+                    type="number" 
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="30"
-                    value={quoteInfo.quoteDuration}
-                    onChange={handleQuoteInfoChange}
+                    value={quoteInfo.duration}
+                    onChange={(e) => handleQuoteInfoChange('duration', e.target.value)}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Số buổi</label>
-                  <input
-                    type="number"
-                    id="sessionCount"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Số buổi</label>
+                  <input 
+                    type="number" 
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="Số buổi"
                     value={quoteInfo.sessionCount}
-                    onChange={handleQuoteInfoChange}
+                    onChange={(e) => handleQuoteInfoChange('sessionCount', e.target.value)}
                   />
                 </div>
               </div>
             </div>
 
-            {/* Chi tiết báo giá */}
-            <div className="bg-white rounded-xl shadow-md p-6 mb-6 overflow-x-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-gray-700 flex items-center">
-                  <BarChart className="mr-2 h-5 w-5 text-blue-500" />
+            {/* Items Table Card */}
+            <div className="card p-6 mb-6 fade-in">
+              <div className="flex justify-between items-center mb-5">
+                <h2 className="text-lg font-semibold text-gray-800 flex items-center">
+                  <List className="h-5 w-5 mr-2 text-indigo-500" />
                   Chi tiết hàng hóa/dịch vụ
                 </h2>
-                <div className="flex gap-2">
-                  <button
-                    onClick={createDemoQuote}
-                    className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition duration-300"
-                  >
-                    <i className="fas fa-magic mr-1"></i>Tạo mẫu
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowAddItemForm(true);
-                      setIsEditMode(false);
-                      setEditingItemIndex(-1);
-                      resetItemForm();
-                    }}
-                    className="bg-blue-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-600 transition duration-300"
-                  >
-                    <Plus className="h-4 w-4 inline mr-1" /> <span className="hidden sm:inline">Thêm hàng hóa</span>
-                  </button>
-                </div>
+                <button 
+                  className="bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-600 transition flex items-center"
+                  onClick={() => {
+                    setShowAddItemForm(true);
+                    setEditingItemIndex(-1);
+                    resetItemForm();
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Thêm hàng hóa</span>
+                </button>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        STT
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Mã HHDV
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tên HH/DV
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Chi tiết
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        ĐVT
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Giá bán
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        SL
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Thành tiền
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        % ưu đãi
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tiền ưu đãi
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Sau ưu đãi
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Thao tác
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {quoteItems.length > 0 ? (
-                      quoteItems.map((item, index) => (
+              {/* Empty state when no items */}
+              {items.length === 0 ? (
+                <div className="py-14 flex flex-col items-center justify-center text-gray-400">
+                  <ShoppingCart className="h-12 w-12 mb-4 text-gray-300" />
+                  <p className="text-lg">Chưa có hàng hóa trong báo giá</p>
+                  <p className="text-sm mt-2">Vui lòng thêm hàng hóa từ danh mục hoặc nhập thủ công</p>
+                  <button 
+                    className="mt-4 bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-600 transition flex items-center"
+                    onClick={() => {
+                      setShowAddItemForm(true);
+                      resetItemForm();
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Thêm hàng hóa
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 shadow-sm">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">STT</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mã HHDV</th>
+                        <th className="w-48 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tên HH/DV</th>
+                        <th className="w-48 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chi tiết</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ĐVT</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Giá bán</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SL</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thành tiền</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">% ưu đãi</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tiền ưu đãi</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sau ưu đãi</th>
+                        <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {items.map((item, index) => (
                         <tr key={index} className="hover:bg-gray-50">
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">{index + 1}</td>
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">{item.code}</td>
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{item.name}</td>
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">{item.detail}</td>
+                          <td className="w-48 px-3 py-4 text-sm text-gray-900 break-words">
+                            <div className="whitespace-normal">{item.name}</div>
+                          </td>
+                          <td className="w-48 px-3 py-4 text-sm text-gray-500 break-words">
+                            <div className="whitespace-normal">{item.detail}</div>
+                          </td>
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">{item.unit}</td>
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(item.price)} đ</td>
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{item.quantity}</td>
@@ -925,255 +922,310 @@ const loadSavedQuote = (data) => {
                           <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-green-600">{formatCurrency(item.afterDiscount)} đ</td>
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
                             <button 
-                              className="text-blue-500 hover:text-blue-700 mx-1"
+                              className="text-indigo-500 hover:text-indigo-700 mx-1 p-1 rounded hover:bg-indigo-50"
+                              title="Sửa"
                               onClick={() => handleEditItem(index)}
                             >
                               <Edit className="h-4 w-4" />
                             </button>
                             <button 
-                              className="text-red-500 hover:text-red-700 mx-1"
+                              className="text-red-500 hover:text-red-700 mx-1 p-1 rounded hover:bg-red-50"
+                              title="Xóa"
                               onClick={() => handleDeleteItem(index)}
                             >
                               <Trash className="h-4 w-4" />
                             </button>
                           </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="12" className="px-3 py-6 text-center text-sm text-gray-500">
-                          Chưa có hàng hóa nào trong báo giá
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
-              {/* Form thêm hàng hóa */}
+              {/* Add Item Form */}
               {showAddItemForm && (
-                <div className="mt-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
-                  <h3 className="text-md font-medium text-gray-700 mb-3">
-                    {isEditMode ? 'Cập nhật hàng hóa/dịch vụ' : 'Thêm hàng hóa/dịch vụ'}
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="form-group">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Mã HHDV</label>
-                      <div className="flex">
-                        <input
-                          type="text"
-                          id="code"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Mã HHDV"
-                          value={currentItem.code}
-                          onChange={handleItemChange}
+                <div className="mt-6 p-6 border border-gray-200 rounded-lg bg-gray-50 fade-in">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">
+                      {editingItemIndex >= 0 ? 'Cập nhật hàng hóa' : 'Thêm hàng hóa mới'}
+                    </h3>
+                  </div>
+
+                  {/* Form layout - 3 columns */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Left column - Basic info */}
+                    <div>
+                      <div className="form-group mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Mã HHDV</label>
+                        <div className="flex">
+                          <input 
+                            type="text" 
+                            className="w-full px-3 py-2.5 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder="Mã HHDV"
+                            value={currentItem.code}
+                            onChange={(e) => handleItemChange('code', e.target.value)}
+                          />
+                          <button 
+                            className="bg-indigo-500 text-white px-3 py-2.5 rounded-r-lg hover:bg-indigo-600 transition"
+                            onClick={handleSearchProduct}
+                          >
+                            <Search className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="form-group mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Tên hàng hóa/dịch vụ</label>
+                        <input 
+                          type="text" 
+                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="Tên HHDV"
+                          value={currentItem.name}
+                          onChange={(e) => handleItemChange('name', e.target.value)}
                         />
-                        <button 
-                          className="bg-blue-500 text-white px-3 py-2 rounded-r-lg"
-                          onClick={handleSearchProduct}
-                        >
-                          <Search className="h-4 w-4" />
-                        </button>
+                      </div>
+
+                      <div className="form-group mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Đơn vị tính</label>
+                        <input 
+                          type="text" 
+                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="Đơn vị tính"
+                          value={currentItem.unit}
+                          onChange={(e) => handleItemChange('unit', e.target.value)}
+                        />
                       </div>
                     </div>
 
-                    <div className="form-group">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Tên hàng hóa/dịch vụ</label>
-                      <input
-                        type="text"
-                        id="name"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Tên HHDV"
-                        value={currentItem.name}
-                        onChange={handleItemChange}
-                      />
-                    </div>
+                    {/* Middle column - Pricing and quantity */}
+                    <div>
+                      <div className="form-group mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Giá bán</label>
+                        <div className="relative">
+                          <input 
+                            type="number" 
+                            className="w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder="Giá bán"
+                            value={currentItem.price}
+                            onChange={(e) => handleItemChange('price', e.target.value)}
+                          />
+                          <span className="absolute right-3 top-2.5 text-gray-400">đ</span>
+                        </div>
+                      </div>
 
-                    <div className="form-group">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Chi tiết</label>
-                      <input
-                        type="text"
-                        id="detail"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Chi tiết"
-                        value={currentItem.detail}
-                        onChange={handleItemChange}
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Đơn vị tính</label>
-                      <select
-                        id="unit"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={currentItem.unit}
-                        onChange={handleItemChange}
-                      >
-                        <option value="Cái">Cái</option>
-                        <option value="Bộ">Bộ</option>
-                        <option value="Giờ">Giờ</option>
-                        <option value="Ngày">Ngày</option>
-                        <option value="Tháng">Tháng</option>
-                      </select>
-                    </div>
-
-                    <div className="form-group">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Giá bán</label>
-                      <input
-                        type="number"
-                        id="price"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Giá bán"
-                        value={currentItem.price}
-                        onChange={handleItemChange}
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Số lượng</label>
-                      <input
-                        type="number"
-                        id="quantity"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Số lượng"
-                        value={currentItem.quantity}
-                        onChange={handleItemChange}
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">% ưu đãi</label>
-                      <input
-                        type="number"
-                        id="discountPercent"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="% ưu đãi"
-                        value={currentItem.discountPercent}
-                        onChange={handleItemChange}
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Lên KH</label>
-                      <div className="flex items-center mt-2">
-                        <input
-                          type="checkbox"
-                          id="showToCustomer"
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          checked={currentItem.showToCustomer}
-                          onChange={handleItemChange}
+                      <div className="form-group mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Số lượng</label>
+                        <input 
+                          type="number" 
+                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="Số lượng"
+                          value={currentItem.quantity}
+                          onChange={(e) => handleItemChange('quantity', e.target.value)}
                         />
-                        <label className="ml-2 block text-sm text-gray-700">Hiển thị lên KH</label>
+                      </div>
+
+                      <div className="form-group mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">% ưu đãi</label>
+                        <div className="relative">
+                          <input 
+                            type="number" 
+                            className="w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder="% ưu đãi"
+                            value={currentItem.discount}
+                            onChange={(e) => handleItemChange('discount', e.target.value)}
+                          />
+                          <span className="absolute right-3 top-2.5 text-gray-400">%</span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="form-group">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú</label>
-                      <input
-                        type="text"
-                        id="note"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Ghi chú"
-                        value={currentItem.note}
-                        onChange={handleItemChange}
-                      />
+                    <div>
+                      <div className="form-group">
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Ghi chú</label>
+                        <textarea 
+                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="Ghi chú" 
+                          rows="7"
+                          value={currentItem.note}
+                          onChange={(e) => handleItemChange('note', e.target.value)}
+                        ></textarea>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 flex justify-end">
-                    <button
+                  {/* Live calculation preview card */}
+                  <div className="bg-white p-4 rounded-lg border border-gray-200 mt-4 shadow-sm">
+                    <h4 className="font-medium text-sm text-gray-700 mb-3">Tổng quan sản phẩm</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500">Thành tiền:</p>
+                        <p className="font-medium text-gray-800">
+                          {formatCurrency(
+                            (parseFloat(currentItem.price) || 0) * (parseInt(currentItem.quantity) || 0)
+                          )} đ
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Tiền ưu đãi:</p>
+                        <p className="font-medium text-red-500">
+                          {formatCurrency(
+                            (parseFloat(currentItem.price) || 0) * 
+                            (parseInt(currentItem.quantity) || 0) * 
+                            (parseFloat(currentItem.discount) || 0) / 100
+                          )} đ
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Sau ưu đãi:</p>
+                        <p className="font-medium text-green-600">
+                          {formatCurrency(
+                            (parseFloat(currentItem.price) || 0) * 
+                            (parseInt(currentItem.quantity) || 0) * 
+                            (1 - (parseFloat(currentItem.discount) || 0) / 100)
+                          )} đ
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Detail textarea */}
+                  <div className="mt-4">
+                    <div className="form-group mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Chi tiết</label>
+                      <textarea 
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Chi tiết" 
+                        rows="4"
+                        value={currentItem.detail}
+                        onChange={(e) => handleItemChange('detail', e.target.value)}
+                      ></textarea>
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex justify-end mt-5">
+                    <button 
+                      className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg mr-3 hover:bg-gray-300 transition flex items-center"
                       onClick={() => setShowAddItemForm(false)}
-                      className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg mr-2 hover:bg-gray-300 transition duration-300"
                     >
+                      <X className="h-4 w-4 mr-2" />
                       Hủy
                     </button>
-                    <button
-                      onClick={handleAddOrUpdateItem}
-                      className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300"
+                    <button 
+                      className="bg-indigo-500 text-white px-4 py-2.5 rounded-lg hover:bg-indigo-600 transition flex items-center"
+                      onClick={handleAddItem}
                     >
-                      {isEditMode ? 'Cập nhật hàng hóa' : 'Thêm vào báo giá'}
+                      {editingItemIndex >= 0 ? (
+                        <>
+                          <Check className="h-4 w-4 mr-2" />
+                          Cập nhật
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Thêm vào báo giá
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Tổng hợp báo giá */}
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
-                <BarChart className="mr-2 h-5 w-5 text-blue-500" />
+            {/* Payment Summary Card */}
+            <div className="card p-6 fade-in">
+              <h2 className="text-lg font-semibold text-gray-800 mb-5 flex items-center">
+                <Calculator className="h-5 w-5 mr-2 text-indigo-500" />
                 Thông tin thanh toán
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">% VAT</label>
-                    <select
-                      id="vatRate"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={paymentInfo.vatRate}
-                      onChange={handlePaymentInfoChange}
-                    >
-                      <option value="0">0%</option>
-                      <option value="5">5%</option>
-                      <option value="10">10%</option>
-                    </select>
-                  </div>
+                  {/* Payment configuration */}
+                  <div className="space-y-4">
+                    <div className="form-group">
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">% VAT</label>
+                      <select 
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        value={quoteInfo.vatRate}
+                        onChange={(e) => handleQuoteInfoChange('vatRate', e.target.value)}
+                      >
+                        <option value="0">0%</option>
+                        <option value="5">5%</option>
+                        <option value="10">10%</option>
+                      </select>
+                    </div>
 
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Chi phí duy trì</label>
-                    <input
-                      type="number"
-                      id="maintenanceFee"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Chi phí duy trì"
-                      value={paymentInfo.maintenanceFee}
-                      onChange={handlePaymentInfoChange}
-                    />
-                  </div>
+                    <div className="form-group">
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Chi phí duy trì</label>
+                      <div className="relative">
+                        <input 
+                          type="number" 
+                          className="w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="Chi phí duy trì"
+                          value={quoteInfo.maintenanceFee}
+                          onChange={(e) => handleQuoteInfoChange('maintenanceFee', e.target.value)}
+                        />
+                        <span className="absolute right-3 top-2.5 text-gray-400">đ</span>
+                      </div>
+                    </div>
 
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phí Public App</label>
-                    <input
-                      type="number"
-                      id="publicAppFee"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Phí Public App"
-                      value={paymentInfo.publicAppFee}
-                      onChange={handlePaymentInfoChange}
-                    />
+                    <div className="form-group">
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Phí Public App</label>
+                      <div className="relative">
+                        <input 
+                          type="number" 
+                          className="w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="Phí Public App"
+                          value={quoteInfo.publicAppFee}
+                          onChange={(e) => handleQuoteInfoChange('publicAppFee', e.target.value)}
+                        />
+                        <span className="absolute right-3 top-2.5 text-gray-400">đ</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="flex justify-between py-2 border-b border-gray-200">
+                <div className="bg-gray-50 p-5 rounded-lg shadow-sm border border-gray-100">
+                  <div className="flex justify-between py-2.5 border-b border-gray-200">
                     <span className="text-gray-600">Tổng tiền hàng:</span>
                     <span className="font-medium">{formatCurrency(totals.totalBeforeDiscount)} đ</span>
                   </div>
-                  <div className="flex justify-between py-2 border-b border-gray-200">
+                  <div className="flex justify-between py-2.5 border-b border-gray-200">
                     <span className="text-gray-600">Tổng tiền ưu đãi:</span>
                     <span className="font-medium text-red-500">-{formatCurrency(totals.totalDiscount)} đ</span>
                   </div>
-                  <div className="flex justify-between py-2 border-b border-gray-200">
+                  <div className="flex justify-between py-2.5 border-b border-gray-200">
                     <span className="text-gray-600">Thành tiền trước VAT:</span>
                     <span className="font-medium">{formatCurrency(totals.totalAfterDiscount)} đ</span>
                   </div>
-                  <div className="flex justify-between py-2 border-b border-gray-200">
-                    <span className="text-gray-600">VAT ({paymentInfo.vatRate}%):</span>
+                  <div className="flex justify-between py-2.5 border-b border-gray-200">
+                    <span className="text-gray-600">VAT ({quoteInfo.vatRate}%):</span>
                     <span className="font-medium">{formatCurrency(totals.vatAmount)} đ</span>
                   </div>
-                  <div className="flex justify-between py-2 border-b border-gray-200">
+                  <div className="flex justify-between py-2.5 border-b border-gray-200">
                     <span className="text-gray-600">Chi phí duy trì:</span>
-                    <span className="font-medium">{formatCurrency(parseFloat(paymentInfo.maintenanceFee) || 0)} đ</span>
+                    <span className="font-medium">{formatCurrency(totals.maintenanceFee)} đ</span>
                   </div>
-                  <div className="flex justify-between py-2 border-b border-gray-200">
+                  <div className="flex justify-between py-2.5 border-b border-gray-200">
                     <span className="text-gray-600">Phí Public App:</span>
-                    <span className="font-medium">{formatCurrency(parseFloat(paymentInfo.publicAppFee) || 0)} đ</span>
+                    <span className="font-medium">{formatCurrency(totals.publicAppFee)} đ</span>
                   </div>
-                  <div className="flex justify-between py-3 font-bold text-lg">
+                  <div className="flex justify-between py-3.5 font-bold text-lg mt-1">
                     <span className="text-gray-800">TỔNG THANH TOÁN:</span>
-                    <span className="text-blue-600">{formatCurrency(totals.grandTotal)} đ</span>
+                    <span className="text-indigo-600">{formatCurrency(totals.grandTotal)} đ</span>
+                  </div>
+
+                  {/* Export options */}
+                  <div className="mt-4 flex justify-end">
+                    <div className="dropdown relative inline-block">
+                      <button className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition flex items-center">
+                        <File className="h-4 w-4 mr-2" />
+                        <span>Xuất báo giá</span>
+                        <ChevronDown className="h-3 w-3 ml-2" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1183,13 +1235,92 @@ const loadSavedQuote = (data) => {
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-100 border-t border-gray-200 py-4">
-        <div className="container mx-auto px-4 text-center text-gray-600 text-sm">
-          © 2025 Hệ thống Tạo Báo Giá - Mọi quyền được bảo lưu
+      <footer className="bg-gray-50 border-t border-gray-200 py-4 mt-auto">
+        <div className="container mx-auto px-4 flex justify-between items-center">
+          <div className="text-sm text-gray-600">
+            © 2025 Hệ thống Tạo Báo Giá - Mọi quyền được bảo lưu
+          </div>
+          <div className="text-sm text-gray-500">
+            <a href="#" className="hover:text-indigo-500 transition mr-4">Trợ giúp</a>
+            <a href="#" className="hover:text-indigo-500 transition mr-4">Điều khoản</a>
+            <a href="#" className="hover:text-indigo-500 transition">Liên hệ</a>
+          </div>
         </div>
       </footer>
 
-      {/* Toast Container */}
+      {/* Company Search Modal */}
+      {showCompanyModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col fade-in">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-700">Tìm kiếm công ty</h3>
+              <button 
+                className="text-gray-500 hover:text-gray-700 p-1 rounded hover:bg-gray-100"
+                onClick={() => setShowCompanyModal(false)}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4 border-b border-gray-200">
+              <div className="mb-2 relative">
+                <input 
+                  type="text" 
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Tìm kiếm theo tên công ty, MST, tên viết tắt..."
+                />
+                <Search className="h-4 w-4 absolute left-3 top-3.5 text-gray-400" />
+              </div>
+            </div>
+            <div className="overflow-y-auto flex-grow">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Tên công ty
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      TVT
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      MST
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Chọn
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {companyList.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" className="px-4 py-4 text-center text-gray-500">
+                        Không tìm thấy công ty phù hợp.
+                      </td>
+                    </tr>
+                  ) : (
+                    companyList.map(company => (
+                      <tr key={company.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-900">{company.name || ''}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{company.shortName || ''}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{company.taxCode || ''}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-center">
+                          <button 
+                            className="text-indigo-600 hover:text-indigo-900 px-3 py-1 rounded hover:bg-indigo-50"
+                            onClick={() => handleSelectCompany(company)}
+                          >
+                            Chọn
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast for notifications */}
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -1206,4 +1337,4 @@ const loadSavedQuote = (data) => {
   );
 };
 
-export default BaoGiaFrom;
+export default QuoteSystem;

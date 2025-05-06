@@ -63,6 +63,38 @@ export const dashboardMenuItems = [
         ]
     },
     {
+        groupId: 2,
+        groupName: "PO",
+        icon: Wallet,
+        permissions: {
+            PhanQuyen: ["Admin", "All"],
+            Phong: ["Hành chánh", "Giám đốc"],
+        },
+        items: [
+            {
+                text: 'BÁO GIÁ',
+                icon: ChartPie,
+                path: '/baogiafrom',
+                description: 'Kế hoạch doanh thu',
+                permissions: {
+                    PhanQuyen: ["Admin", "All"],
+                    Phong: ["Giám đốc"],
+                }
+            },
+            {
+                text: 'Hợp đồng',
+                icon: ChartPie,
+                path: '/hopdong',
+                description: 'Kế hoạch doanh thu',
+                permissions: {
+                    PhanQuyen: ["Admin", "All"],
+                    Phong: ["Giám đốc"],
+                }
+            },
+       
+        ]
+    },
+    {
         groupId: 5,
         groupName: "Kế hoạch",
         icon: Wallet,
