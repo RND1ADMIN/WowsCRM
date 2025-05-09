@@ -73,7 +73,7 @@ const MenuStructurePage = () => {
     const totalItemsShown = filteredItems.reduce((total, group) => total + group.filteredItems.length, 0);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-5 mt-14">
+        <div className="h-[calc(100vh-7rem)] bg-gradient-to-br">
             {/* Khu vực tìm kiếm và lọc */}
             <div className="bg-white p-4 mb-4 rounded-lg shadow-sm border">
                 <div className="flex flex-col md:flex-row gap-3 mb-2">

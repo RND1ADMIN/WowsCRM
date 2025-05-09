@@ -436,7 +436,7 @@ const OrgChart = () => {
   };
 
   return (
-    <div className="p-4 bg-gray-50 min-h-screen">
+    <div className=" h-[calc(100vh-7rem)]">
       <div className="mx-auto space-y-4">
         <div className="bg-white p-6 rounded-lg shadow-lg">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">

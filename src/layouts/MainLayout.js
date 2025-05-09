@@ -558,9 +558,8 @@ const MainLayout = ({ children }) => {
                     )}
                 </header>
 
-                {/* Main Content */}
-                <main className={`mt-12 ${pageActions.length > 0 ? 'pt-12' : 'pt-0'}`}>
-                    <div >
+                    <main className={`mt-16 ${pageActions.length > 0 ? 'pt-12' : 'pt-0'} h-[calc(100vh-4rem)] overflow-hidden transition-all duration-300`}>
+                    <div className="p-4 h-full overflow-auto">
                         {children}
                     </div>
                 </main>

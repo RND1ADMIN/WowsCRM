@@ -1119,7 +1119,7 @@ const [sortConfig, setSortConfig] = useState({ key: 'NGÀY', direction: 'descend
     };
 
     return (
-        <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
+        <div className=" h-[calc(100vh-7rem)]">
             <div className="mx-auto">
                 <div className="bg-white rounded-xl shadow-sm p-5 mb-6 border border-gray-100">
                     {/* Header Section */}

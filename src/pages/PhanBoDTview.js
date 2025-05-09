@@ -206,7 +206,7 @@ const FinancialPlanningView = () => {
     };
 
     return (
-        <div className="bg-gradient-to-r min-h-screen p-4 py-8">
+        <div className="bg-gradient-to-r h-[calc(100vh-7rem)] ">
             <div className="bg-white rounded-xl shadow-xl p-8 w-full mx-auto">
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-2xl font-bold text-blue-700">Danh sách Kế hoạch Phân bổ Tài chính</h1>

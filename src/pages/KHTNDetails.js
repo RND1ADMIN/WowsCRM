@@ -170,7 +170,7 @@ const KHTNDetails = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="h-[calc(100vh-7rem)] flex items-center justify-center bg-gray-50">
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mx-auto mb-4"></div>
                     <p className="text-gray-600">Đang tải thông tin khách hàng...</p>
@@ -181,7 +181,7 @@ const KHTNDetails = () => {
 
     if (!customer) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="h-[calc(100vh-7rem)] flex items-center justify-center">
                 <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center">
                     <div className="text-red-500 text-5xl mb-4">!</div>
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">Không tìm thấy thông tin</h2>
@@ -199,7 +199,7 @@ const KHTNDetails = () => {
     }
 
     return (
-        <div className="bg-gray-50 min-h-screen">
+        <div className="bg-gray-50 h-[calc(100vh-7rem)]">
             <div className="mx-auto px-4 py-8">
                 <div className="bg-white shadow-md rounded-lg p-6 mb-6">
                     {/* Header */}

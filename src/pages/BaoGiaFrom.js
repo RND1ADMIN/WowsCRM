@@ -1,1340 +1,1787 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  Plus, Edit, Trash, Search, X, Upload, ChevronDown, ChevronLeft, ChevronRight,
-  Info, Calculator, Save, List, Filter, ShoppingCart, Check, File, FileText
-} from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext, useTransition } from 'react';
+import { Search, PlusCircle, FileSearch, Trash2, Eye, CheckCircle, Printer, Save, RefreshCw, Download, Upload, FileText, X, Calculator, Users, FileCheck, CalendarClock, Percent, Edit } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
+import { Link } from 'react-router-dom';
+import { FixedSizeList as List } from 'react-window';
+import useSWR from 'swr';
 
+// Context API
+const QuotationContext = createContext();
 
-const QuoteSystem = () => {
-  // State cho danh sách hàng hóa
-  const [items, setItems] = useState([]);
-  const [editingItemIndex, setEditingItemIndex] = useState(-1);
-  
-  // State cho thông tin báo giá
-  const [quoteInfo, setQuoteInfo] = useState({
-    id: '',
-    companyId: '',
-    companyName: '',
-    companyShortName: '',
-    companyTaxCode: '',
-    date: new Date().toISOString().split('T')[0],
-    duration: '30',
-    sessionCount: '',
-    vatRate: '10',
-    maintenanceFee: '1000000',
-    publicAppFee: '500000'
-  });
-  
-  // State cho sidebar
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
-  // State cho form thêm hàng hóa
-  const [showAddItemForm, setShowAddItemForm] = useState(false);
-  const [currentItem, setCurrentItem] = useState({
-    code: '',
-    name: '',
-    detail: '',
-    unit: 'Cái',
-    price: '',
-    quantity: '',
-    discount: '',
-    note: ''
-  });
-  
-  // State cho danh mục sản phẩm
-  const [productCatalog, setProductCatalog] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState(['all']);
-  const [companyList, setCompanyList] = useState([]);
-  const [showCompanyModal, setShowCompanyModal] = useState(false);
-  
-  // Refs
-  const fileInputRef = useRef(null);
-  const navigate = useNavigate();
-  
-  // API configs
-  const APP_ID = "fa999040-d473-49aa-b948-6b86007a0041";
-  const API_KEY = "V2-AJHhE-w3Tb3-Vma6U-HTB3a-CSA9s-ydUin-fEC1Q-rNUWW";
+// Custom hooks
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
 
-  // Effect hooks
   useEffect(() => {
-    // Tải danh sách sản phẩm khi component được render
-    fetchProductCatalog();
-    
-    // Tải danh sách công ty
-    fetchCompanyList();
-    
-    // Kiểm tra dữ liệu đã lưu
-    checkSavedQuote();
-    
-    // Generate ID
-    generateQuoteId();
-  }, []);
-  
-  useEffect(() => {
-    // Apply filter khi danh sách sản phẩm hoặc bộ lọc thay đổi
-    applyProductFilters();
-  }, [productCatalog, searchTerm, selectedCategories]);
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
 
-  // Fetch danh mục sản phẩm
-  const fetchProductCatalog = async () => {
-    try {
-      const response = await authUtils.apiRequest('DMHH', 'Find', {
-        Properties: {
-          Locale: "vi-VN",
-          Timezone: "Asia/Ho_Chi_Minh",
-          Selector: "Filter(DMHH, true)"
-        }
-      });
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
 
-      if (response) {
-        const formattedProducts = response.map(row => ({
-          code: row["Ma_HHDV"] || '',
-          name: row["TÊN HH DV"] || '',
-          detail: row["CHI TIẾT"] || '',
-          unit: row["DVT"] || '',
-          category: row["PHÂN LOẠI"] || '',
-          subCategory: row["PHÂN LOẠI DT"] || '',
-          supplier: row["NCC ƯU TIÊN"] || '',
-          price: parseFloat(row["GIÁ BÁN"]) || 0,
-          image: row["HÌNH ẢNH"] || ''
-        }));
-        
-        setProductCatalog(formattedProducts);
-        setFilteredProducts(formattedProducts);
-      } else {
-        // Dữ liệu mẫu khi không có API
-        setProductCatalog(getSampleProducts());
-        setFilteredProducts(getSampleProducts());
-      }
-    } catch (error) {
-      console.error('Lỗi khi tải danh mục hàng hóa:', error);
-      // Dữ liệu mẫu khi API lỗi
-      setProductCatalog(getSampleProducts());
-      setFilteredProducts(getSampleProducts());
-    }
-  };
+  return debouncedValue;
+};
 
-  // Fetch danh sách công ty
-  const fetchCompanyList = async () => {
-    try {
-      const response = await authUtils.apiRequest('KHTN', 'Find', {
-        Properties: {
-          Locale: "vi-VN",
-          Timezone: "Asia/Ho_Chi_Minh",
-          Selector: "Filter(KHTN, true)"
-        }
-      });
+// Fetch service
+const fetchServices = async () => {
+  try {
+    const res = await authUtils.apiRequest('DMHH', 'Find', {});
+    return res?.map(svc => ({
+      'Ma_HHDV': svc['MÃ HÀNG'] || svc['Ma_HHDV'],
+      'TÊN HH DV': svc['TÊN HÀNG'] || svc['TÊN HH DV'],
+      'CHI TIẾT': svc['MÔ TẢ'] || svc['CHI TIẾT'],
+      'DVT': svc['ĐƠN VỊ TÍNH'] || svc['DVT'],
+      'GIÁ BÁN': svc['ĐƠN GIÁ XUẤT'] || svc['GIÁ BÁN'] || 0,
+      'PHÂN LOẠI': svc['PHÂN LOẠI']
+    })) || [];
+  } catch (error) {
+    console.error('Error fetching services:', error);
+    return [];
+  }
+};
 
-      if (response) {
-        const formattedCompanies = response.map(row => ({
-          id: row["ID_CTY"] || '',
-          name: row["TÊN CÔNG TY"] || '',
-          shortName: row["TÊN VIẾT TẮT"] || '',
-          email: row["EMAIL CÔNG TY"] || '',
-          taxCode: row["MST"] || ''
-        }));
-        
-        setCompanyList(formattedCompanies);
-      } else {
-        // Dữ liệu mẫu khi không có API
-        setCompanyList(getSampleCompanies());
-      }
-    } catch (error) {
-      console.error('Lỗi khi tải danh sách công ty:', error);
-      // Dữ liệu mẫu khi API lỗi
-      setCompanyList(getSampleCompanies());
-    }
-  };
+// Fetch customers
+const fetchCustomers = async () => {
+  try {
+    const res = await authUtils.apiRequest('KHTN', 'Find', {});
+    return res || [];
+  } catch (error) {
+    console.error('Error fetching customers:', error);
+    return [];
+  }
+};
 
-  // Functions for filters
-  const applyProductFilters = () => {
-    let results = [...productCatalog];
-    
-    // Apply category filter
-    if (!selectedCategories.includes('all')) {
-      results = results.filter(product => 
-        selectedCategories.includes(product.category)
+// Format currency
+const formatCurrency = (value) => {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+};
+
+// Subcomponents
+const ServiceCard = React.memo(({ service, isSelected, onSelect, onViewDetail }) => {
+  return (
+    <div
+      className={`flex items-center p-3 rounded-lg border hover:bg-gray-50 cursor-pointer service-card
+          ${isSelected ? 'border-2 border-blue-500 bg-blue-50' : 'border-gray-100'}`}
+      onClick={onSelect}
+    >
+      <div className="w-12 h-12 rounded-lg bg-blue-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+        <FileText className="w-6 h-6 text-blue-500" />
+      </div>
+      <div className="ml-3 flex-1">
+        <div className="flex items-start justify-between">
+          <h3 className="font-medium text-gray-900 text-sm">{service['TÊN HH DV']}</h3>
+          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+            {formatCurrency(service['GIÁ BÁN'])}
+          </span>
+        </div>
+        <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+          <span className="flex items-center">
+            <span className="mr-1">📋</span>
+            {service['Ma_HHDV']}
+          </span>
+          <span className="flex items-center">
+            <span className="mr-1">📦</span>
+            {service['DVT']}
+          </span>
+        </div>
+        {service['CHI TIẾT'] && (
+          <div className="mt-1 text-xs text-gray-500 line-clamp-1">
+            {service['CHI TIẾT']}
+          </div>
+        )}
+      </div>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onViewDetail();
+        }}
+        className="ml-2 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+        title="Xem chi tiết"
+      >
+        <FileText className="w-4 h-4" />
+      </button>
+    </div>
+  );
+});
+
+const ServiceCardCompact = React.memo(({ service, isSelected, onSelect, onViewDetail }) => {
+  return (
+    <div
+      className={`border rounded-lg p-2 ${isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-indigo-300'
+        } transition-all cursor-pointer`}
+    >
+      <div className="flex items-start">
+        <div className="mr-2 mt-0.5">
+          <FileText className="h-4 w-4 text-indigo-500" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between items-start">
+            <h3 className="text-sm font-medium text-gray-800 truncate w-3/4" title={service['TÊN HH DV']}>
+              {service['TÊN HH DV']}
+            </h3>
+            <div className="text-xs font-semibold text-indigo-600 whitespace-nowrap">
+              {parseInt(service['GIÁ BÁN']).toLocaleString('vi-VN')} đ
+            </div>
+          </div>
+          <div className="text-xs text-gray-500 mt-0.5 truncate" title={service.Ma_HHDV}>
+            Mã: {service.Ma_HHDV}
+          </div>
+          <div className="flex items-center mt-1.5 justify-between">
+            <div className="flex items-center">
+              <span className="inline-flex items-center bg-gray-100 px-1.5 py-0.5 rounded text-xs text-gray-600 truncate max-w-[100px]" title={service.Loai_DV}>
+                {service['PHÂN LOẠI']|| "Chưa phân loại"}
+              </span>
+            </div>
+            <div className="flex space-x-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewDetail();
+                }}
+                className="p-1 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+              >
+                <Eye className="h-3 w-3" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect();
+                }}
+                className={`p-1 rounded ${isSelected ? "text-indigo-600 bg-indigo-100" : "text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
+                  }`}
+              >
+                {isSelected ? (
+                  <CheckCircle className="h-3 w-3" />
+                ) : (
+                  <PlusCircle className="h-3 w-3" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const CategoryFilter = React.memo(({ categories, selectedCategories, onSelectCategory }) => (
+  <div className="flex flex-wrap gap-2">
+    {categories.map((category) => {
+      const count = category === 'Tất cả'
+        ? categories.length - 1 // Exclude "All" from count
+        : category.count;
+      const isActive = category === 'Tất cả'
+        ? selectedCategories.length === 0
+        : selectedCategories.includes(category.name);
+
+      return (
+        <button
+          key={category.name || category}
+          onClick={() => onSelectCategory(category.name || category)}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center space-x-2 transition-colors
+              ${isActive
+              ? 'bg-blue-500 text-white'
+              : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
+        >
+          <span>{category.name || category}</span>
+          <span className={`px-1.5 py-0.5 text-xs rounded-full 
+              ${isActive
+              ? 'bg-blue-400 text-white'
+              : 'bg-gray-200 text-gray-600'}`}>
+            {count}
+          </span>
+        </button>
       );
-    }
-    
-    // Apply search filter
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      results = results.filter(product =>
-        product.code.toLowerCase().includes(term) ||
-        product.name.toLowerCase().includes(term) ||
-        (product.category && product.category.toLowerCase().includes(term))
-      );
-    }
-    
-    setFilteredProducts(results);
-  };
+    })}
+  </div>
+));
 
-  const handleCategoryFilter = (category) => {
-    if (category === 'all') {
-      setSelectedCategories(['all']);
-    } else {
-      // Deselect "all" if it's currently selected
-      const newSelection = selectedCategories.includes('all') 
-        ? [category] 
-        : selectedCategories.includes(category)
-          ? selectedCategories.filter(c => c !== category) // remove if already selected
-          : [...selectedCategories, category]; // add if not selected
-      
-      // If empty, select "all" again
-      setSelectedCategories(newSelection.length === 0 ? ['all'] : newSelection);
-    }
-  };
-
-  // Get unique categories from products
-  const getUniqueCategories = () => {
-    const categories = new Set();
-    productCatalog.forEach(product => {
-      if (product.category) {
-        categories.add(product.category);
-      }
-    });
-    return Array.from(categories);
-  };
-
-  // Handler functions
-  const handleQuoteInfoChange = (field, value) => {
-    setQuoteInfo(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleItemChange = (field, value) => {
-    setCurrentItem(prev => {
-      const updated = { ...prev, [field]: value };
-      
-      // Calculate values based on price, quantity and discount
-      if (field === 'price' || field === 'quantity' || field === 'discount') {
-        const price = parseFloat(updated.price) || 0;
-        const quantity = parseInt(updated.quantity) || 0;
-        const discount = parseFloat(updated.discount) || 0;
-        
-        updated.subtotal = price * quantity;
-        updated.discountAmount = updated.subtotal * (discount / 100);
-        updated.afterDiscount = updated.subtotal - updated.discountAmount;
-      }
-      
-      return updated;
-    });
-  };
-
-  const handleAddItem = () => {
-    if (!currentItem.code || !currentItem.name || !currentItem.price || !currentItem.quantity) {
-      toast.error('Vui lòng điền đầy đủ thông tin hàng hóa (Mã, Tên, Giá, Số lượng)');
-      return;
-    }
-    
-    const price = parseFloat(currentItem.price) || 0;
-    const quantity = parseInt(currentItem.quantity) || 0;
-    const discountPercent = parseFloat(currentItem.discount) || 0;
-    
-    const subtotal = price * quantity;
-    const discountAmount = subtotal * (discountPercent / 100);
-    const afterDiscount = subtotal - discountAmount;
-    
-    const newItem = {
-      code: currentItem.code,
-      name: currentItem.name,
-      detail: currentItem.detail,
-      unit: currentItem.unit,
-      price: price,
-      quantity: quantity,
-      subtotal: subtotal,
-      discountPercent: discountPercent,
-      discountAmount: discountAmount,
-      afterDiscount: afterDiscount,
-      note: currentItem.note
-    };
-    
-    if (editingItemIndex >= 0) {
-      // Update existing item
-      const updatedItems = [...items];
-      updatedItems[editingItemIndex] = newItem;
-      setItems(updatedItems);
-      toast.success('Đã cập nhật hàng hóa thành công');
-    } else {
-      // Add new item
-      setItems(prev => [...prev, newItem]);
-      toast.success('Đã thêm hàng hóa thành công');
-    }
-    
-    // Reset form and hide it
-    resetItemForm();
-    setShowAddItemForm(false);
-    setEditingItemIndex(-1);
-  };
-
-  const handleDeleteItem = (index) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa hàng hóa này không?')) {
-      const newItems = [...items];
-      newItems.splice(index, 1);
-      setItems(newItems);
-      toast.success('Đã xóa hàng hóa thành công');
-    }
-  };
-
-  const handleEditItem = (index) => {
-    const item = items[index];
-    setCurrentItem({
-      code: item.code,
-      name: item.name,
-      detail: item.detail || '',
-      unit: item.unit,
-      price: item.price,
-      quantity: item.quantity,
-      discount: item.discountPercent,
-      note: item.note || '',
-      subtotal: item.subtotal,
-      discountAmount: item.discountAmount,
-      afterDiscount: item.afterDiscount
-    });
-    
-    setEditingItemIndex(index);
-    setShowAddItemForm(true);
-  };
-
-  const handleSelectCompany = (company) => {
-    setQuoteInfo(prev => ({
-      ...prev,
-      companyId: company.id,
-      companyName: company.name,
-      companyShortName: company.shortName,
-      companyTaxCode: company.taxCode
-    }));
-    
-    setShowCompanyModal(false);
-    toast.success('Đã chọn công ty thành công');
-  };
-
-  const handleAddProductToQuote = (product) => {
-    const newItem = {
-      code: product.code,
-      name: product.name,
-      detail: product.detail || '',
-      unit: product.unit,
-      price: product.price,
-      quantity: 1,
-      subtotal: product.price * 1,
-      discountPercent: 0,
-      discountAmount: 0,
-      afterDiscount: product.price * 1,
-      note: ''
-    };
-    
-    setItems(prev => [...prev, newItem]);
-    toast.success('Đã thêm hàng hóa vào báo giá');
-    
-    // Close sidebar on mobile
-    if (window.innerWidth < 768) {
-      setMobileMenuOpen(false);
-    }
-  };
-
-  // Helper functions
-  const resetItemForm = () => {
-    setCurrentItem({
-      code: '',
-      name: '',
-      detail: '',
-      unit: 'Cái',
-      price: '',
-      quantity: '',
-      discount: '',
-      note: '',
-      subtotal: 0,
-      discountAmount: 0,
-      afterDiscount: 0
-    });
-  };
-
-  const generateQuoteId = () => {
-    const prefix = 'BG';
-    const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    const today = new Date();
-    const dateStr = today.getFullYear().toString().substr(-2) +
-        (today.getMonth() + 1).toString().padStart(2, '0');
-    
-    setQuoteInfo(prev => ({
-      ...prev,
-      id: `${prefix}${dateStr}-${randomNum}`
-    }));
-  };
-
-  const calculateTotals = () => {
-    let totalBeforeDiscount = 0;
-    let totalDiscount = 0;
-    let totalAfterDiscount = 0;
-    
-    items.forEach(item => {
-      totalBeforeDiscount += item.subtotal;
-      totalDiscount += item.discountAmount;
-      totalAfterDiscount += item.afterDiscount;
-    });
-    
-    const vatRate = parseFloat(quoteInfo.vatRate);
-    const vatAmount = totalAfterDiscount * (vatRate / 100);
-    const maintenanceFee = parseFloat(quoteInfo.maintenanceFee) || 0;
-    const publicAppFee = parseFloat(quoteInfo.publicAppFee) || 0;
-    const grandTotal = totalAfterDiscount + vatAmount + maintenanceFee + publicAppFee;
-    
-    return {
-      totalBeforeDiscount,
-      totalDiscount,
-      totalAfterDiscount,
-      vatAmount,
-      grandTotal,
-      maintenanceFee,
-      publicAppFee
-    };
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('vi-VN').format(amount);
-  };
-
-  const handleSaveQuote = async () => {
-    if (items.length === 0) {
-      toast.error('Vui lòng thêm ít nhất một hàng hóa/dịch vụ vào báo giá');
-      return;
-    }
-    
-    if (!quoteInfo.id || !quoteInfo.companyId || !quoteInfo.date) {
-      toast.error('Vui lòng điền đầy đủ thông tin báo giá (ID, Công ty, Ngày báo giá)');
-      return;
-    }
-    
-    // Save to localStorage for demo
-    const quoteData = {
-      ...quoteInfo,
-      items: items
-    };
-    
-    localStorage.setItem('savedQuote', JSON.stringify(quoteData));
-    
-    // Simulate API call
-    try {
-      toast.success('Đã lưu báo giá thành công!');
-      
-   
-      await authUtils.apiRequest('BAOGIA', 'Add', {
-        Properties: {
-          Locale: "vi-VN",
-          Timezone: "Asia/Ho_Chi_Minh"
-      },
-        Rows: [quoteData]
-      });
-      
-    } catch (error) {
-      console.error('Lỗi khi lưu báo giá:', error);
-      toast.error('Có lỗi xảy ra khi lưu báo giá. Vui lòng thử lại.');
-    }
-  };
-
-  const handleSearchProduct = () => {
-    const code = currentItem.code;
-    if (!code) {
-      toast.warning('Vui lòng nhập mã hàng hóa để tìm kiếm');
-      return;
-    }
-    
-    const product = productCatalog.find(p => p.code === code);
-    if (product) {
-      setCurrentItem(prev => ({
-        ...prev,
-        name: product.name,
-        detail: product.detail || '',
-        unit: product.unit,
-        price: product.price,
-        quantity: prev.quantity || 1
-      }));
-    } else {
-      toast.error('Không tìm thấy mã hàng hóa này');
-    }
-  };
-
-  const checkSavedQuote = () => {
-    const savedQuoteStr = localStorage.getItem('savedQuote');
-    if (savedQuoteStr) {
-      try {
-        const savedQuote = JSON.parse(savedQuoteStr);
-        if (window.confirm('Phát hiện báo giá đã lưu. Bạn có muốn nạp lại không?')) {
-          loadSavedQuote(savedQuote);
-          toast.success('Đã phục hồi báo giá thành công');
-        }
-      } catch (error) {
-        console.error('Lỗi khi nạp dữ liệu báo giá:', error);
-      }
-    }
-  };
-
-  const loadSavedQuote = (quoteData) => {
-    if (!quoteData) return;
-    
-    setQuoteInfo({
-      id: quoteData.id || '',
-      companyId: quoteData.companyId || '',
-      companyName: quoteData.companyName || '',
-      companyShortName: quoteData.companyShortName || '',
-      companyTaxCode: quoteData.companyTaxCode || '',
-      date: quoteData.date || new Date().toISOString().split('T')[0],
-      duration: quoteData.duration || '30',
-      sessionCount: quoteData.sessionCount || '',
-      vatRate: quoteData.vatRate || '10',
-      maintenanceFee: quoteData.maintenanceFee || '1000000',
-      publicAppFee: quoteData.publicAppFee || '500000'
-    });
-    
-    setItems(quoteData.items || []);
-  };
-
-  // Sample data
-  const getSampleProducts = () => {
-    return [
-      {
-        code: 'DV001',
-        name: 'Dịch vụ phát triển website',
-        detail: 'Triển khai và cấu hình hệ thống',
-        unit: 'Giờ',
-        category: 'Dịch vụ',
-        price: 500000
-      },
-      {
-        code: 'LIC001',
-        name: 'License phần mềm XYZ',
-        detail: 'Bản quyền phần mềm 1 năm',
-        unit: 'User',
-        category: 'License',
-        price: 1200000
-      },
-      {
-        code: 'DT001',
-        name: 'Khóa đào tạo CNTT',
-        detail: 'Đào tạo kỹ năng cho nhân viên',
-        unit: 'Buổi',
-        category: 'Đào tạo',
-        price: 2000000
-      }
-    ];
-  };
-
-  const getSampleCompanies = () => {
-    return [
-      {
-        id: 'CTY001',
-        name: 'Công ty TNHH Công Nghệ ABC',
-        shortName: 'ABC Tech',
-        email: 'info@abctech.com',
-        taxCode: '0123456789'
-      },
-      {
-        id: 'CTY002',
-        name: 'Công ty Cổ phần Phần mềm XYZ',
-        shortName: 'XYZ Software',
-        email: 'contact@xyzsoftware.com',
-        taxCode: '0987654321'
-      },
-      {
-        id: 'CTY003',
-        name: 'Công ty TNHH Giải pháp Công nghệ 123',
-        shortName: '123 Solutions',
-        email: 'info@123solutions.com',
-        taxCode: '1234567890'
-      }
-    ];
-  };
-
-  // Tính toán tổng giá trị
-  const totals = calculateTotals();
+const ServiceTableRow = React.memo(({ item, index, onQuantityChange, onDiscountChange, onPriceChange, onNoteChange, onRemove, vatPercent, onEdit }) => {
+  const subtotal = item.price * item.quantity;
+  const discountAmount = Math.round(subtotal * (item.discountPercent / 100));
+  const afterDiscount = subtotal - discountAmount;
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <button 
-                onClick={() => setMobileMenuOpen(true)}
-                className="mr-2 md:hidden text-white p-1 rounded-lg hover:bg-indigo-700"
-              >
-                <List className="h-5 w-5" />
-              </button>
-
-              <div className="flex items-center">
-                <i className="fas fa-file-invoice-dollar text-2xl mr-3"></i>
-                <h1 className="text-xl font-semibold">Hệ Thống Tạo Báo Giá</h1>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-3">
-              <button 
-                onClick={handleSaveQuote}
-                className="bg-white text-indigo-600 px-4 py-2 rounded-lg font-medium hover:bg-indigo-50 transition flex items-center"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Lưu báo giá</span>
-              </button>
+    <tr className="hover:bg-gray-50 transition-colors">
+      <td className="px-3 py-2">
+        <div className="flex items-center space-x-2">
+          <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+            <FileText className="w-4 h-4 text-blue-500" />
+          </div>
+          <div>
+            <div className="font-medium text-gray-900">{item.service['TÊN HH DV']}</div>
+            <div className="text-xs text-gray-500">
+              {item.service['Ma_HHDV']} | <span className="font-medium">{item.service['DVT']}</span>
+              {item.service['CHI TIẾT'] && <span className="ml-1">- {item.service['CHI TIẾT']}</span>}
             </div>
           </div>
         </div>
-      </header>
-
-      {/* Main Content with Sidebar */}
-      <div className="flex flex-grow relative">
-        {/* Overlay for mobile */}
-        {mobileMenuOpen && (
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
-            onClick={() => setMobileMenuOpen(false)}
-          ></div>
-        )}
-
-        {/* Sidebar */}
-        <div 
-          className={`w-72 bg-white border-r border-gray-200 overflow-hidden transition-all duration-300 fixed md:sticky top-16 z-30 h-[calc(100vh-4rem)] transform ${
-            mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-          }`}
-        >
-          <div className="p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
-            <h2 className="font-semibold text-indigo-600">Danh Mục Hàng Hóa</h2>
-            <div className="flex items-center">
-              <button 
-                onClick={() => setSidebarOpen(false)}
-                className="text-gray-500 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button 
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-gray-500 hover:text-gray-700 md:hidden ml-2 p-1 rounded-lg hover:bg-gray-100"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="overflow-y-auto h-full pb-24">
-            {/* Search Bar */}
-            <div className="p-4 border-b border-gray-200">
-              <div className="relative">
-                <input 
-                  type="text" 
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Tìm kiếm hàng hóa..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <Search className="h-4 w-4 absolute left-3 top-3.5 text-gray-400" />
-              </div>
-            </div>
-
-            {/* Category Filters */}
-            <div className="p-4 border-b border-gray-200">
-              <div className="flex justify-between items-center cursor-pointer">
-                <h3 className="font-medium text-sm text-gray-600 uppercase">Phân Loại</h3>
-                <button className="text-gray-500 focus:outline-none p-1 rounded-lg hover:bg-gray-100">
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="mt-3 max-h-36 overflow-y-auto">
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium shadow-sm ${
-                      selectedCategories.includes('all')
-                        ? 'bg-indigo-500 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                    onClick={() => handleCategoryFilter('all')}
-                  >
-                    Tất cả
-                  </button>
-                  
-                  {getUniqueCategories().map(category => (
-                    <button
-                      key={category}
-                      className={`px-3 py-1.5 rounded-full text-sm font-medium shadow-sm ${
-                        selectedCategories.includes(category) && !selectedCategories.includes('all')
-                          ? 'bg-indigo-500 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                      onClick={() => handleCategoryFilter(category)}
-                    >
-                      {category}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Product List */}
-            <div className="p-4">
-              <h3 className="font-medium text-sm text-gray-600 uppercase mb-3">Hàng Hóa & Dịch Vụ</h3>
-              <div className="space-y-3">
-                {filteredProducts.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-gray-500">
-                    <Search className="h-10 w-10 mb-3 text-gray-300" />
-                    <p>Không tìm thấy sản phẩm</p>
-                  </div>
-                ) : (
-                  filteredProducts.map(product => (
-                    <div key={product.code} className="card p-3 cursor-pointer product-item hover:border-indigo-200 border border-transparent">
-                      <div className="flex justify-between items-center">
-                        <div className="flex-1">
-                          <div className="font-medium text-gray-900">{product.name}</div>
-                          <div className="text-sm text-gray-500 mt-1">
-                            Mã: {product.code} | ĐVT: {product.unit}
-                          </div>
-                          <div className="mt-1.5">
-                            {product.category && (
-                              <span className="badge badge-primary">{product.category}</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="font-medium text-indigo-600 text-lg">
-                          {formatCurrency(product.price)} đ
-                        </div>
-                      </div>
-                      <button
-                        className="mt-2 w-full text-sm bg-indigo-50 text-indigo-600 rounded-lg py-1.5 hover:bg-indigo-100 transition-colors"
-                        onClick={() => handleAddProductToQuote(product)}
-                      >
-                        <Plus className="h-3 w-3 inline mr-1" /> Thêm vào báo giá
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Collapsed sidebar toggle */}
-        {!sidebarOpen && (
-          <button 
-            className="fixed left-0 top-1/2 transform -translate-y-1/2 bg-white p-2 rounded-r-lg shadow-md text-gray-500 hover:text-gray-700 border border-l-0 border-gray-200 z-10"
-            onClick={() => setSidebarOpen(true)}
+      </td>
+      <td className="px-3 py-2">
+        <input
+          type="number"
+          className="w-14 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+          value={item.quantity}
+          onChange={(e) => onQuantityChange(index, parseInt(e.target.value) || 1)}
+          min="1"
+        />
+      </td>
+      <td className="px-3 py-2">
+        <input
+          type="number"
+          className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+          value={item.price}
+          onChange={(e) => onPriceChange(index, parseInt(e.target.value) || 0)}
+          min="0"
+        />
+      </td>
+      <td className="px-3 py-2 font-medium">
+        {formatCurrency(subtotal)}
+      </td>
+      <td className="px-3 py-2">
+        <input
+          type="number"
+          className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+          value={item.discountPercent}
+          onChange={(e) => onDiscountChange(index, Math.min(parseFloat(e.target.value) || 0, 100))}
+          min="0"
+          max="100"
+        />
+      </td>
+      <td className="px-3 py-2 text-red-500 font-medium">
+        -{formatCurrency(discountAmount)}
+      </td>
+      <td className="px-3 py-2 font-medium">
+        {formatCurrency(afterDiscount)}
+      </td>
+      <td className="px-3 py-2">
+        <input
+          type="text"
+          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+          placeholder="Ghi chú"
+          value={item.note}
+          onChange={(e) => onNoteChange(index, e.target.value)}
+        />
+      </td>
+      <td className="px-3 py-2 text-center">
+        <div className="flex items-center justify-center space-x-1">
+          <button
+            onClick={() => onEdit(item, index)}
+            className="text-blue-500 hover:text-blue-700 p-1 hover:bg-blue-50 rounded-full transition-colors"
+            title="Chỉnh sửa"
           >
-            <ChevronRight className="h-4 w-4" />
+            <Edit className="w-4 h-4" />
           </button>
-        )}
+        <button
+          onClick={() => onRemove(index)}
+          className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-full transition-colors"
+          title="Xóa sản phẩm"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+        </div>
+      </td>
+    </tr>
+  );
+});
 
-        {/* Main Content */}
-        <main className="flex-grow w-full md:w-auto">
-          <div className="container mx-auto px-4 py-6">
-            {/* Quote Information Card */}
-            <div className="card p-6 mb-6 fade-in">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-gray-800 flex items-center">
-                  <Info className="h-5 w-5 mr-2 text-indigo-500" />
-                  Thông tin báo giá
-                </h2>
-                <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                  <i className="fas fa-calendar-alt mr-1"></i>
-                  <span>{new Date().toLocaleDateString('vi-VN')}</span>
-                </div>
-              </div>
+const ServicesTable = React.memo(({ items, onQuantityChange, onDiscountChange, onPriceChange, onNoteChange, onRemove, vatPercent, onEdit }) => {
+  if (items.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <FileText className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+        <p className="text-gray-500">Chưa có dịch vụ nào được thêm vào báo giá</p>
+        <p className="text-sm text-gray-400 mt-1">Chọn dịch vụ từ danh sách bên trái để thêm vào báo giá</p>
+      </div>
+    );
+  }
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">ID Báo giá</label>
-                  <div className="relative">
-                    <input 
-                      type="text" 
-                      className="w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      placeholder="ID_BBGTH"
-                      value={quoteInfo.id}
-                      onChange={(e) => handleQuoteInfoChange('id', e.target.value)}
-                    />
-                    <button 
-                      className="absolute right-2 top-2.5 text-indigo-500 hover:text-indigo-700"
-                      title="Tạo ID tự động"
-                      onClick={generateQuoteId}
-                    >
-                      <i className="fas fa-magic"></i>
-                    </button>
-                  </div>
-                </div>
+  // Calculate totals
+  const totalBeforeDiscount = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalDiscounts = items.reduce((sum, item) => {
+    const subtotal = item.price * item.quantity;
+    return sum + (subtotal * (item.discountPercent / 100));
+  }, 0);
+  const totalAfterDiscount = totalBeforeDiscount - totalDiscounts;
 
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Tên công ty</label>
-                  <div className="flex">
-                    <input 
-                      type="text" 
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      placeholder="Tên công ty"
-                      value={quoteInfo.companyName}
-                      onChange={(e) => handleQuoteInfoChange('companyName', e.target.value)}
-                    />
-                    <button 
-                      className="bg-indigo-500 text-white px-3 py-2.5 rounded-r-lg hover:bg-indigo-600 transition"
-                      onClick={() => setShowCompanyModal(true)}
-                    >
-                      <Search className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
+  return (
+    <table className="min-w-full divide-y divide-gray-200 text-sm">
+      <thead>
+        <tr>
+          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            Tên Dịch Vụ
+          </th>
+          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+            Số Lượng
+          </th>
+          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+            Đơn Giá
+          </th>
+          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+            Thành Tiền
+          </th>
+          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+            % Ưu Đãi
+          </th>
+          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+            Ưu Đãi
+          </th>
+          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+            Sau Ưu Đãi
+          </th>
+          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            Ghi Chú
+          </th>
+          <th className="px-3 py-2 w-12 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <span className="sr-only">Thao Tác</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody className="bg-white divide-y divide-gray-200">
+        {items.map((item, index) => (
+          <ServiceTableRow
+            key={index}
+            item={item}
+            index={index}
+            onQuantityChange={onQuantityChange}
+            onDiscountChange={onDiscountChange}
+            onPriceChange={onPriceChange}
+            onNoteChange={onNoteChange}
+            onRemove={onRemove}
+            vatPercent={vatPercent}
+            onEdit={onEdit}
+          />
+        ))}
+        <tr className="bg-gray-50 font-medium">
+          <td colSpan="3" className="px-3 py-2 text-right">
+            Tổng cộng:
+          </td>
+          <td className="px-3 py-2 font-bold">
+            {formatCurrency(totalBeforeDiscount)}
+          </td>
+          <td className="px-3 py-2">
+          </td>
+          <td className="px-3 py-2 text-red-500 font-bold">
+            -{formatCurrency(totalDiscounts)}
+          </td>
+          <td className="px-3 py-2 font-bold">
+            {formatCurrency(totalAfterDiscount)}
+          </td>
+          <td colSpan="2"></td>
+        </tr>
+      </tbody>
+    </table>
+  );
+});
 
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Ngày báo giá</label>
-                  <div className="relative">
-                    <input 
-                      type="date" 
-                      className="w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      value={quoteInfo.date}
-                      onChange={(e) => handleQuoteInfoChange('date', e.target.value)}
-                    />
-                    <i className="fas fa-calendar absolute right-3 top-3 text-gray-400 pointer-events-none"></i>
-                  </div>
-                </div>
+// Main component
+const QuotationForm = () => {
+  // Use SWR for data fetching with caching
+  const { data: servicesData, error: servicesError, mutate: mutateServices } = useSWR('services', fetchServices, {
+    revalidateOnFocus: false,
+    dedupingInterval: 3600000, // 1 hour
+    suspense: false
+  });
 
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Tên viết tắt</label>
-                  <input 
-                    type="text" 
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none"
-                    placeholder="Tên viết tắt"
-                    value={quoteInfo.companyShortName}
-                    readOnly
-                  />
-                </div>
+  const { data: customersData, error: customersError } = useSWR('customers', fetchCustomers, {
+    revalidateOnFocus: false,
+    dedupingInterval: 3600000, // 1 hour
+    suspense: false
+  });
 
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Mã số thuế</label>
-                  <input 
-                    type="text" 
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none"
-                    placeholder="Mã số thuế"
-                    value={quoteInfo.companyTaxCode}
-                    readOnly
-                  />
-                </div>
+  // States with optimized structure
+  const [selectedServices, setSelectedServices] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isPending, startTransition] = useTransition();
+  const [filteredServices, setFilteredServices] = useState([]);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedService, setSelectedService] = useState(null);
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
+  const [currentCategoryPage, setCurrentCategoryPage] = useState(1);
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  const categoriesPerPage = 10;
 
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Thời hạn báo giá (ngày)</label>
-                  <input 
-                    type="number" 
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="30"
-                    value={quoteInfo.duration}
-                    onChange={(e) => handleQuoteInfoChange('duration', e.target.value)}
-                  />
-                </div>
+  // Split form state into smaller chunks for better performance
+  const [quoteBasics, setQuoteBasics] = useState({
+    ID_BBGTH: '',
+    ID_CTY: '',
+    NGAYBAOGIA: new Date().toISOString().slice(0, 10),
+  });
 
-                <div className="form-group">
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Số buổi</label>
-                  <input 
-                    type="number" 
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Số buổi"
-                    value={quoteInfo.sessionCount}
-                    onChange={(e) => handleQuoteInfoChange('sessionCount', e.target.value)}
-                  />
-                </div>
-              </div>
+  const [quoteSettings, setQuoteSettings] = useState({
+    UUDAI: 0,
+    PT_VAT: 10,
+    THOIHANGIA: 15,
+  });
+
+  const [additionalSettings, setAdditionalSettings] = useState({
+    SOBUOI: 0,
+    THOIHAN: 0,
+    PHIDUYTRI: 0,
+    PHIPUBLICAPP: 0,
+    GHICHU: ''
+  });
+
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdQuotationId, setCreatedQuotationId] = useState(null);
+  const [previousQuotes, setPreviousQuotes] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingService, setEditingService] = useState(null);
+
+  const services = servicesData || [];
+  const customers = customersData || [];
+  const printRef = useRef(null);
+
+  // Apply debounce to search (smaller delay for better responsiveness)
+  const debouncedSearchQuery = useDebounce(searchQuery, 200);
+
+  // Memoized categories
+  const categories = useMemo(() => {
+    if (!services.length) return [];
+
+    const categoryMap = services.reduce((acc, service) => {
+      const category = service['PHÂN LOẠI'] || 'Khác';
+      const categoryDT = service['PHÂN LOẠI DT'] || '';
+      if (!acc[category]) {
+        acc[category] = {
+          name: category,
+          dt: categoryDT,
+          count: 0
+        };
+      }
+      acc[category].count++;
+      return acc;
+    }, {});
+
+    return Object.values(categoryMap);
+  }, [services]);
+
+  // Apply filter to categories
+  const filteredCategories = useMemo(() => {
+    const searchLower = categorySearchQuery.toLowerCase();
+    return categories.filter(cat =>
+      cat.name.toLowerCase().includes(searchLower) ||
+      cat.dt.toLowerCase().includes(searchLower)
+    );
+  }, [categories, categorySearchQuery]);
+
+  // Pagination for categories
+  const totalCategoryPages = Math.ceil(filteredCategories.length / categoriesPerPage);
+  const currentCategories = useMemo(() => {
+    const start = (currentCategoryPage - 1) * categoriesPerPage;
+    return filteredCategories.slice(start, start + categoriesPerPage);
+  }, [filteredCategories, currentCategoryPage]);
+
+  // Calculate totals with memoization
+  const totals = useMemo(() => {
+    const totalBeforeDiscount = selectedServices.reduce((sum, item) => {
+      return sum + (item.price * item.quantity);
+    }, 0);
+
+    const totalItemDiscount = selectedServices.reduce((sum, item) => {
+      const subtotal = item.price * item.quantity;
+      return sum + (subtotal * (item.discountPercent / 100));
+    }, 0);
+
+    const afterItemDiscount = totalBeforeDiscount - totalItemDiscount;
+
+    // Additional discount on total
+    const generalDiscountAmount = afterItemDiscount * (quoteSettings.UUDAI / 100);
+    const afterGeneralDiscount = afterItemDiscount - generalDiscountAmount;
+
+    // VAT
+    const vatAmount = afterGeneralDiscount * (quoteSettings.PT_VAT / 100);
+    const afterVat = afterGeneralDiscount + vatAmount;
+
+    // Additional fees
+    const maintenanceFee = parseFloat(additionalSettings.PHIDUYTRI) || 0;
+    const publicAppFee = parseFloat(additionalSettings.PHIPUBLICAPP) || 0;
+
+    // Grand total
+    const grandTotal = afterVat + maintenanceFee + publicAppFee;
+
+    return {
+      totalBeforeDiscount,
+      totalItemDiscount,
+      afterItemDiscount,
+      generalDiscountAmount,
+      afterGeneralDiscount,
+      vatAmount,
+      afterVat,
+      maintenanceFee,
+      publicAppFee,
+      grandTotal
+    };
+  }, [selectedServices, quoteSettings.UUDAI, quoteSettings.PT_VAT, additionalSettings.PHIDUYTRI, additionalSettings.PHIPUBLICAPP]);
+
+  // Fetch previous quotes when customer changes
+  useEffect(() => {
+    const fetchPreviousQuotes = async () => {
+      if (selectedCustomer) {
+        try {
+          // Tạo mã báo giá tự động với timestamp
+          const timestamp = new Date().getTime();
+          const newId = `BG${timestamp}`;
+
+          setQuoteBasics(prev => ({ ...prev, ID_BBGTH: newId }));
+        } catch (error) {
+          console.error('Error generating quote ID:', error);
+          // Tạo ID dự phòng nếu có lỗi
+          const timestamp = new Date().getTime();
+          const newId = `BG${timestamp}`;
+          setQuoteBasics(prev => ({ ...prev, ID_BBGTH: newId }));
+        }
+      }
+    };
+
+    fetchPreviousQuotes();
+  }, [selectedCustomer]);
+
+  // Update filtered services when dependencies change
+  useEffect(() => {
+    startTransition(() => {
+      if (!services.length) return;
+
+      const filtered = services.filter(service => {
+        const matchesSearch = debouncedSearchQuery.trim() === '' ||
+          service['Ma_HHDV']?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+          service['TÊN HH DV']?.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
+
+        const matchesCategory = selectedCategories.length === 0 ||
+          selectedCategories.includes(service['PHÂN LOẠI'] || 'Khác');
+
+        return matchesSearch && matchesCategory;
+      });
+
+      setFilteredServices(filtered);
+    });
+  }, [services, debouncedSearchQuery, selectedCategories]);
+
+  // Optimized handlers
+  const handleSearchChange = useCallback((e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+  }, []);
+
+  const handleQuoteBasicsChange = useCallback((e) => {
+    const { id, value } = e.target;
+    setQuoteBasics(prev => ({ ...prev, [id]: value }));
+  }, []);
+
+  const handleQuoteSettingsChange = useCallback((e) => {
+    const { id, value } = e.target;
+    setQuoteSettings(prev => ({ ...prev, [id]: value }));
+  }, []);
+
+  const handleAdditionalSettingsChange = useCallback((e) => {
+    const { id, value } = e.target;
+    setAdditionalSettings(prev => ({ ...prev, [id]: value }));
+  }, []);
+
+  const handleCustomerChange = useCallback((e) => {
+    const customerId = e.target.value;
+    setQuoteBasics(prev => ({ ...prev, ID_CTY: customerId }));
+
+    const customer = customers.find(c => c.ID_CTY === customerId);
+    setSelectedCustomer(customer);
+  }, [customers]);
+
+  const handleSelectCategory = useCallback((category) => {
+    if (category === 'Tất cả') {
+      setSelectedCategories([]);
+    } else {
+      setSelectedCategories(prev => {
+        if (prev.includes(category)) {
+          return prev.filter(c => c !== category);
+        } else {
+          return [...prev, category];
+        }
+      });
+    }
+  }, []);
+
+  const handleSelectService = useCallback((serviceId) => {
+    const service = services.find(s => s['Ma_HHDV'] === serviceId);
+    if (!service) return;
+
+    setSelectedServices(prev => {
+      // Check if service already exists
+      const existingIndex = prev.findIndex(p => p.service['Ma_HHDV'] === serviceId);
+
+      if (existingIndex >= 0) {
+        // Update quantity if service already added
+        const updated = [...prev];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          quantity: updated[existingIndex].quantity + 1
+        };
+        return updated;
+      } else {
+        // Add new service with unique ID
+        return [...prev, {
+          id: `SERV${Date.now()}${Math.floor(Math.random() * 1000)}`,
+          service,
+          quantity: 1,
+          price: service['GIÁ BÁN'],
+          discountPercent: 0,
+          note: ''
+        }];
+      }
+    });
+  }, [services]);
+
+  const handleRemoveService = useCallback((index) => {
+    setSelectedServices(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleServiceQuantityChange = useCallback((index, value) => {
+    setSelectedServices(prev => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        quantity: value
+      };
+      return updated;
+    });
+  }, []);
+
+  const handleServicePriceChange = useCallback((index, value) => {
+    setSelectedServices(prev => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        price: value
+      };
+      return updated;
+    });
+  }, []);
+
+  const handleServiceDiscountChange = useCallback((index, value) => {
+    setSelectedServices(prev => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        discountPercent: value
+      };
+      return updated;
+    });
+  }, []);
+
+  const handleServiceNoteChange = useCallback((index, value) => {
+    setSelectedServices(prev => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        note: value
+      };
+      return updated;
+    });
+  }, []);
+
+  const resetForm = useCallback(() => {
+    setQuoteBasics({
+      ID_BBGTH: '',
+      ID_CTY: '',
+      NGAYBAOGIA: new Date().toISOString().slice(0, 10),
+    });
+
+    setQuoteSettings({
+      UUDAI: 0,
+      PT_VAT: 10,
+      THOIHANGIA: 15,
+    });
+
+    setAdditionalSettings({
+      SOBUOI: 0,
+      THOIHAN: 0,
+      PHIDUYTRI: 0,
+      PHIPUBLICAPP: 0,
+      GHICHU: ''
+    });
+
+    setSelectedServices([]);
+    setSelectedCustomer(null);
+  }, []);
+
+  const refreshData = useCallback(() => {
+    mutateServices();
+  }, [mutateServices]);
+
+  const validateForm = useCallback(() => {
+    const errors = [];
+
+    // Basic validations
+    if (!quoteBasics.ID_BBGTH) errors.push('Mã báo giá chưa được tạo');
+    if (!quoteBasics.ID_CTY) errors.push('Vui lòng chọn khách hàng');
+    if (!quoteBasics.NGAYBAOGIA) errors.push('Vui lòng chọn ngày báo giá');
+    if (selectedServices.length === 0) errors.push('Vui lòng thêm ít nhất một dịch vụ');
+
+    return errors;
+  }, [quoteBasics, selectedServices]);
+
+  const calculateQuoteExpiryDate = useCallback(() => {
+    if (!quoteBasics.NGAYBAOGIA || !quoteSettings.THOIHANGIA) return '';
+
+    const date = new Date(quoteBasics.NGAYBAOGIA);
+    date.setDate(date.getDate() + parseInt(quoteSettings.THOIHANGIA));
+    return date.toISOString().slice(0, 10);
+  }, [quoteBasics.NGAYBAOGIA, quoteSettings.THOIHANGIA]);
+
+  const submitForm = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      // Validate form
+      const errors = validateForm();
+      if (errors.length > 0) {
+        toast.error(errors.join('\n'));
+        setLoading(false);
+        return;
+      }
+
+      // Calculate all totals for database
+      const quoteExpiryDate = calculateQuoteExpiryDate();
+
+      // Prepare quote header with merged data
+      const quoteHeader = {
+        ID_BBGTH: quoteBasics.ID_BBGTH,
+        ID_CTY: quoteBasics.ID_CTY,
+        "NGÀY BÁO GIÁ": quoteBasics.NGAYBAOGIA,
+        "ƯU ĐÃI": quoteSettings.UUDAI,
+        "TT TRƯỚC ƯU ĐÃI": totals.afterItemDiscount,
+        "TT ƯU ĐÃI": totals.generalDiscountAmount,
+        "TT SAU ƯU ĐÃI": totals.afterGeneralDiscount,
+        "PT VAT": quoteSettings.PT_VAT,
+        "TT VAT": totals.vatAmount,
+        "TT SAU VAT": totals.afterVat,
+        "THỜI HẠN BÁO GIÁ": quoteExpiryDate,
+        "SỐ BUỔI": additionalSettings.SOBUOI,
+        "THỜI HẠN": additionalSettings.THOIHANGIA,
+        "PHÍ DUY TRÌ": additionalSettings.PHIDUYTRI,
+        "PHÍ PUBLIC APP": additionalSettings.PHIPUBLICAPP,
+        "TỔNG TIỀN": totals.grandTotal,
+        "GHI CHÚ": additionalSettings.GHICHU
+      };
+
+      const quoteDetails = selectedServices.map((item, index) => {
+        const subtotal = item.price * item.quantity;
+        const discountAmount = Math.round(subtotal * (item.discountPercent / 100));
+        const afterDiscount = subtotal - discountAmount;
+        const vatAmount = afterDiscount * (quoteSettings.PT_VAT / 100);
+
+        return {
+          ID_BBGTH_DE: `${quoteBasics.ID_BBGTH}-${index + 1}`,
+          ID_BBGTH: quoteBasics.ID_BBGTH,
+          Ma_HHDV: item.service['Ma_HHDV'],
+          "TÊN HH DV": item.service['TÊN HH DV'],
+          "CHI TIẾT": item.service['CHI TIẾT'],
+          "DVT": item.service['DVT'],
+          "GIÁ BÁN": item.price,
+          "SỐ LƯỢNG": item.quantity,
+          "THÀNH TIỀN": subtotal,
+          "PT ƯU ĐÃI": item.discountPercent,
+          "SỐ TIỀN ƯU ĐÃI": discountAmount,
+          "GIÁ TRỊ SAU ƯU ĐÃI": afterDiscount,
+          "PT VAT": quoteSettings.PT_VAT,
+          "TIỀN VAT": vatAmount,
+          "GIÁ TRỊ SAU VAT": afterDiscount + vatAmount,
+          "GHI CHÚ": item.note
+        };
+      });
+
+      // Submit data using batch API request for better performance
+      await Promise.all([
+        authUtils.apiRequest('PO', 'Add', { Rows: [quoteHeader] }),
+        authUtils.apiRequest('PO_DE', 'Add', { Rows: quoteDetails })
+      ]);
+
+      setCreatedQuotationId(quoteBasics.ID_BBGTH);
+      setShowSuccessModal(true);
+      resetForm();
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      toast.error('Có lỗi xảy ra khi lưu báo giá');
+    } finally {
+      setLoading(false);
+    }
+  }, [quoteBasics, quoteSettings, additionalSettings, selectedServices, totals, validateForm, calculateQuoteExpiryDate, resetForm]);
+
+  const handleShowCategoryModal = useCallback(() => {
+    setShowCategoryModal(true);
+  }, []);
+
+  const handleCloseCategoryModal = useCallback(() => {
+    setShowCategoryModal(false);
+  }, []);
+
+  const handleShowDetailModal = useCallback((service) => {
+    setSelectedService(service);
+    setShowDetailModal(true);
+  }, []);
+
+  const handleCloseDetailModal = useCallback(() => {
+    setSelectedService(null);
+    setShowDetailModal(false);
+  }, []);
+
+  const handleShowEditModal = useCallback((item, index) => {
+    setEditingService({ ...item, index });
+    setShowEditModal(true);
+  }, []);
+
+  const handleCloseEditModal = useCallback(() => {
+    setEditingService(null);
+    setShowEditModal(false);
+  }, []);
+
+  const handleSaveEdit = useCallback((updatedService) => {
+    setSelectedServices(prev => {
+      const updated = [...prev];
+      updated[updatedService.index] = {
+        ...updated[updatedService.index],
+        quantity: updatedService.quantity,
+        price: updatedService.price,
+        discountPercent: updatedService.discountPercent,
+        note: updatedService.note
+      };
+      return updated;
+    });
+    handleCloseEditModal();
+  }, []);
+
+  // Create a context value for child components
+  const contextValue = {
+    selectedServices,
+    setSelectedServices,
+    handleSelectService,
+    handleRemoveService,
+    handleServiceQuantityChange,
+    handleServicePriceChange,
+    handleServiceDiscountChange,
+    handleServiceNoteChange
+  };
+
+  return (
+    <QuotationContext.Provider value={contextValue}>
+      <div className="h-[calc(100vh-7rem)]">
+        {/* Main Container */}
+        <div className="flex">
+          {/* Sidebar with service listing */}
+        
+          <div className={`w-80 h-[calc(100vh-7rem)] bg-white shadow-lg flex flex-col sticky top-0 ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+          {/* Header - giảm padding và kích thước chữ */}
+            <div className="p-3 border-b border-gray-200 bg-indigo-50">
+              <h2 className="text-base font-semibold flex items-center space-x-1.5 text-indigo-700">
+                <FileText className="h-5 w-5" />
+                <span>Danh Mục Dịch Vụ</span>
+              </h2>
             </div>
 
-            {/* Items Table Card */}
-            <div className="card p-6 mb-6 fade-in">
-              <div className="flex justify-between items-center mb-5">
-                <h2 className="text-lg font-semibold text-gray-800 flex items-center">
-                  <List className="h-5 w-5 mr-2 text-indigo-500" />
-                  Chi tiết hàng hóa/dịch vụ
-                </h2>
-                <button 
-                  className="bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-600 transition flex items-center"
-                  onClick={() => {
-                    setShowAddItemForm(true);
-                    setEditingItemIndex(-1);
-                    resetItemForm();
-                  }}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">Thêm hàng hóa</span>
-                </button>
+            {/* Search Section - giảm padding */}
+            <div className="p-3 border-b border-gray-200">
+              <div className="relative mb-2">
+                <input
+                  type="text"
+                  className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="Tìm kiếm dịch vụ..."
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                />
+                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               </div>
+              <button
+                onClick={() => setShowAdvancedSearch(true)}
+                className="w-full px-2 py-1.5 text-xs text-indigo-600 hover:text-indigo-800 flex items-center justify-center space-x-1 border border-indigo-200 rounded-lg hover:bg-indigo-50"
+              >
+                <Search className="w-3 h-3" />
+                <span>Tìm kiếm nâng cao</span>
+              </button>
+            </div>
 
-              {/* Empty state when no items */}
-              {items.length === 0 ? (
-                <div className="py-14 flex flex-col items-center justify-center text-gray-400">
-                  <ShoppingCart className="h-12 w-12 mb-4 text-gray-300" />
-                  <p className="text-lg">Chưa có hàng hóa trong báo giá</p>
-                  <p className="text-sm mt-2">Vui lòng thêm hàng hóa từ danh mục hoặc nhập thủ công</p>
-                  <button 
-                    className="mt-4 bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-600 transition flex items-center"
-                    onClick={() => {
-                      setShowAddItemForm(true);
-                      resetItemForm();
-                    }}
+            {/* Services List */}
+            <div className="flex-1 overflow-hidden service-list-container">
+              {servicesError ? (
+                <div className="flex flex-col items-center justify-center h-full">
+                  <div className="text-red-500 text-sm mb-2">Lỗi khi tải dữ liệu</div>
+                  <button
+                    onClick={refreshData}
+                    className="px-3 py-1 text-xs bg-indigo-500 text-white rounded-md flex items-center hover:bg-indigo-600"
                   >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Thêm hàng hóa
+                    <RefreshCw className="w-3 h-3 mr-1" /> Thử lại
                   </button>
+                </div>
+              ) : !servicesData ? (
+                <div className="flex flex-col items-center justify-center h-full">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                  <p className="text-gray-500 text-xs mt-3">Đang tải dữ liệu...</p>
+                </div>
+              ) : filteredServices.length > 0 ? (
+                <div className="p-2">
+                  <List
+                    height={610}
+                    itemCount={filteredServices.length}
+                    itemSize={80}
+                    width="100%"
+                    overscanCount={3}
+                    className="service-virtualized-list"
+                  >
+                    {({ index, style }) => (
+                      <div style={{ ...style, paddingRight: '6px', paddingBottom: '8px' }}>
+                        <ServiceCardCompact
+                          key={filteredServices[index]['Ma_HHDV']}
+                          service={filteredServices[index]}
+                          isSelected={selectedServices.some(item =>
+                            item.service['Ma_HHDV'] === filteredServices[index]['Ma_HHDV']
+                          )}
+                          onSelect={() => handleSelectService(filteredServices[index]['Ma_HHDV'])}
+                          onViewDetail={() => handleShowDetailModal(filteredServices[index])}
+                        />
+                      </div>
+                    )}
+                  </List>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 shadow-sm">
-                    <thead>
-                      <tr className="bg-gray-50">
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">STT</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mã HHDV</th>
-                        <th className="w-48 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tên HH/DV</th>
-                        <th className="w-48 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chi tiết</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ĐVT</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Giá bán</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SL</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thành tiền</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">% ưu đãi</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tiền ưu đãi</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sau ưu đãi</th>
-                        <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Thao tác</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {items.map((item, index) => (
-                        <tr key={index} className="hover:bg-gray-50">
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">{index + 1}</td>
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">{item.code}</td>
-                          <td className="w-48 px-3 py-4 text-sm text-gray-900 break-words">
-                            <div className="whitespace-normal">{item.name}</div>
-                          </td>
-                          <td className="w-48 px-3 py-4 text-sm text-gray-500 break-words">
-                            <div className="whitespace-normal">{item.detail}</div>
-                          </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">{item.unit}</td>
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(item.price)} đ</td>
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{item.quantity}</td>
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(item.subtotal)} đ</td>
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{item.discountPercent}%</td>
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(item.discountAmount)} đ</td>
-                          <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-green-600">{formatCurrency(item.afterDiscount)} đ</td>
-                          <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
-                            <button 
-                              className="text-indigo-500 hover:text-indigo-700 mx-1 p-1 rounded hover:bg-indigo-50"
-                              title="Sửa"
-                              onClick={() => handleEditItem(index)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button 
-                              className="text-red-500 hover:text-red-700 mx-1 p-1 rounded hover:bg-red-50"
-                              title="Xóa"
-                              onClick={() => handleDeleteItem(index)}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Add Item Form */}
-              {showAddItemForm && (
-                <div className="mt-6 p-6 border border-gray-200 rounded-lg bg-gray-50 fade-in">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-800">
-                      {editingItemIndex >= 0 ? 'Cập nhật hàng hóa' : 'Thêm hàng hóa mới'}
-                    </h3>
-                  </div>
-
-                  {/* Form layout - 3 columns */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Left column - Basic info */}
-                    <div>
-                      <div className="form-group mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Mã HHDV</label>
-                        <div className="flex">
-                          <input 
-                            type="text" 
-                            className="w-full px-3 py-2.5 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            placeholder="Mã HHDV"
-                            value={currentItem.code}
-                            onChange={(e) => handleItemChange('code', e.target.value)}
-                          />
-                          <button 
-                            className="bg-indigo-500 text-white px-3 py-2.5 rounded-r-lg hover:bg-indigo-600 transition"
-                            onClick={handleSearchProduct}
-                          >
-                            <Search className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="form-group mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Tên hàng hóa/dịch vụ</label>
-                        <input 
-                          type="text" 
-                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          placeholder="Tên HHDV"
-                          value={currentItem.name}
-                          onChange={(e) => handleItemChange('name', e.target.value)}
-                        />
-                      </div>
-
-                      <div className="form-group mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Đơn vị tính</label>
-                        <input 
-                          type="text" 
-                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          placeholder="Đơn vị tính"
-                          value={currentItem.unit}
-                          onChange={(e) => handleItemChange('unit', e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Middle column - Pricing and quantity */}
-                    <div>
-                      <div className="form-group mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Giá bán</label>
-                        <div className="relative">
-                          <input 
-                            type="number" 
-                            className="w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            placeholder="Giá bán"
-                            value={currentItem.price}
-                            onChange={(e) => handleItemChange('price', e.target.value)}
-                          />
-                          <span className="absolute right-3 top-2.5 text-gray-400">đ</span>
-                        </div>
-                      </div>
-
-                      <div className="form-group mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Số lượng</label>
-                        <input 
-                          type="number" 
-                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          placeholder="Số lượng"
-                          value={currentItem.quantity}
-                          onChange={(e) => handleItemChange('quantity', e.target.value)}
-                        />
-                      </div>
-
-                      <div className="form-group mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">% ưu đãi</label>
-                        <div className="relative">
-                          <input 
-                            type="number" 
-                            className="w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            placeholder="% ưu đãi"
-                            value={currentItem.discount}
-                            onChange={(e) => handleItemChange('discount', e.target.value)}
-                          />
-                          <span className="absolute right-3 top-2.5 text-gray-400">%</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="form-group">
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Ghi chú</label>
-                        <textarea 
-                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          placeholder="Ghi chú" 
-                          rows="7"
-                          value={currentItem.note}
-                          onChange={(e) => handleItemChange('note', e.target.value)}
-                        ></textarea>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Live calculation preview card */}
-                  <div className="bg-white p-4 rounded-lg border border-gray-200 mt-4 shadow-sm">
-                    <h4 className="font-medium text-sm text-gray-700 mb-3">Tổng quan sản phẩm</h4>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Thành tiền:</p>
-                        <p className="font-medium text-gray-800">
-                          {formatCurrency(
-                            (parseFloat(currentItem.price) || 0) * (parseInt(currentItem.quantity) || 0)
-                          )} đ
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Tiền ưu đãi:</p>
-                        <p className="font-medium text-red-500">
-                          {formatCurrency(
-                            (parseFloat(currentItem.price) || 0) * 
-                            (parseInt(currentItem.quantity) || 0) * 
-                            (parseFloat(currentItem.discount) || 0) / 100
-                          )} đ
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Sau ưu đãi:</p>
-                        <p className="font-medium text-green-600">
-                          {formatCurrency(
-                            (parseFloat(currentItem.price) || 0) * 
-                            (parseInt(currentItem.quantity) || 0) * 
-                            (1 - (parseFloat(currentItem.discount) || 0) / 100)
-                          )} đ
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Detail textarea */}
-                  <div className="mt-4">
-                    <div className="form-group mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Chi tiết</label>
-                      <textarea 
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder="Chi tiết" 
-                        rows="4"
-                        value={currentItem.detail}
-                        onChange={(e) => handleItemChange('detail', e.target.value)}
-                      ></textarea>
-                    </div>
-                  </div>
-
-                  {/* Action buttons */}
-                  <div className="flex justify-end mt-5">
-                    <button 
-                      className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg mr-3 hover:bg-gray-300 transition flex items-center"
-                      onClick={() => setShowAddItemForm(false)}
-                    >
-                      <X className="h-4 w-4 mr-2" />
-                      Hủy
-                    </button>
-                    <button 
-                      className="bg-indigo-500 text-white px-4 py-2.5 rounded-lg hover:bg-indigo-600 transition flex items-center"
-                      onClick={handleAddItem}
-                    >
-                      {editingItemIndex >= 0 ? (
-                        <>
-                          <Check className="h-4 w-4 mr-2" />
-                          Cập nhật
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Thêm vào báo giá
-                        </>
-                      )}
-                    </button>
-                  </div>
+                <div className="flex flex-col items-center justify-center h-full py-8">
+                  <FileSearch className="h-12 w-12 text-gray-400 mb-3" />
+                  <p className="text-gray-500 text-sm">Không tìm thấy dịch vụ phù hợp</p>
                 </div>
               )}
             </div>
 
-            {/* Payment Summary Card */}
-            <div className="card p-6 fade-in">
-              <h2 className="text-lg font-semibold text-gray-800 mb-5 flex items-center">
-                <Calculator className="h-5 w-5 mr-2 text-indigo-500" />
-                Thông tin thanh toán
+            {/* Footer */}
+            <div className="py-2 px-3 border-t border-gray-200 flex justify-between items-center bg-gray-50 rounded-b-lg">
+              <div className="text-xs text-gray-600">
+                {isPending ? 'Đang lọc...' : `${filteredServices.length} dịch vụ`}
+              </div>
+              <button
+                onClick={refreshData}
+                className="p-1 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-full"
+                title="Làm mới dữ liệu"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Main Content */}
+          <div className="flex-1 p-6 overflow-y-auto">
+            {/* Header */}
+            <div className="mb-6">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center space-x-3">
+                <span>Tạo Báo Giá</span>
               </h2>
+            </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  {/* Payment configuration */}
-                  <div className="space-y-4">
-                    <div className="form-group">
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">% VAT</label>
-                      <select 
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        value={quoteInfo.vatRate}
-                        onChange={(e) => handleQuoteInfoChange('vatRate', e.target.value)}
-                      >
-                        <option value="0">0%</option>
-                        <option value="5">5%</option>
-                        <option value="10">10%</option>
-                      </select>
-                    </div>
+            {/* Form Section */}
+            <div className="bg-white rounded-xl shadow-lg p-6 mb-4">
+              <form className="space-y-4">
+                {/* Form Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* ID Báo Giá */}
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700 block">Mã báo giá</label>
+                    <input
+                      type="text"
+                      id="ID_BBGTH"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50"
+                      value={quoteBasics.ID_BBGTH}
+                      readOnly
+                    />
+                  </div>
 
-                    <div className="form-group">
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Chi phí duy trì</label>
-                      <div className="relative">
-                        <input 
-                          type="number" 
-                          className="w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          placeholder="Chi phí duy trì"
-                          value={quoteInfo.maintenanceFee}
-                          onChange={(e) => handleQuoteInfoChange('maintenanceFee', e.target.value)}
-                        />
-                        <span className="absolute right-3 top-2.5 text-gray-400">đ</span>
+                  {/* Ngày Báo Giá */}
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700 block">Ngày báo giá</label>
+                    <input
+                      type="date"
+                      id="NGAYBAOGIA"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      value={quoteBasics.NGAYBAOGIA}
+                      onChange={handleQuoteBasicsChange}
+                      required
+                    />
+                  </div>
+
+                  {/* Thời Hạn Giá */}
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700 block">Thời hạn báo giá (ngày)</label>
+                    <div className="flex items-center">
+                      <input
+                        type="number"
+                        id="THOIHANGIA"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-l-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        value={quoteSettings.THOIHANGIA}
+                        onChange={handleQuoteSettingsChange}
+                        min="1"
+                      />
+                      <div className="bg-gray-100 px-3 py-2 text-sm border border-l-0 border-gray-300 rounded-r-md text-gray-500">
+                        {calculateQuoteExpiryDate() ? `Hết hạn: ${calculateQuoteExpiryDate()}` : 'Ngày'}
                       </div>
                     </div>
+                  </div>
 
-                    <div className="form-group">
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Phí Public App</label>
-                      <div className="relative">
-                        <input 
-                          type="number" 
-                          className="w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          placeholder="Phí Public App"
-                          value={quoteInfo.publicAppFee}
-                          onChange={(e) => handleQuoteInfoChange('publicAppFee', e.target.value)}
-                        />
-                        <span className="absolute right-3 top-2.5 text-gray-400">đ</span>
+                  {/* Khách Hàng */}
+                  <div className="space-y-1 md:col-span-3">
+                    <label className="text-sm font-medium text-gray-700 block">Khách hàng</label>
+                    <select
+                      id="ID_CTY"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      value={quoteBasics.ID_CTY}
+                      onChange={handleCustomerChange}
+                      required
+                    >
+                      <option value="">Chọn khách hàng</option>
+                      {customers.map(customer => (
+                        <option key={customer.ID_CTY} value={customer.ID_CTY}>
+                          {customer['TÊN CÔNG TY']} ({customer['TÊN VIẾT TẮT'] || customer.ID_CTY})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Customer Info - Only show if customer is selected */}
+                  {selectedCustomer && (
+                    <div className="md:col-span-3 p-4 bg-blue-50 rounded-lg">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Mã số thuế</p>
+                          <p className="text-sm">{selectedCustomer.MST || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Địa chỉ</p>
+                          <p className="text-sm">{selectedCustomer['ĐỊA CHỈ'] || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Email</p>
+                          <p className="text-sm">{selectedCustomer['EMAIL CÔNG TY'] || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Người liên hệ</p>
+                          <p className="text-sm">{selectedCustomer['NGƯỜI LIÊN HỆ'] || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">SĐT liên hệ</p>
+                          <p className="text-sm">{selectedCustomer['SỐ ĐT NGƯỜI LIÊN HỆ'] || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Email liên hệ</p>
+                          <p className="text-sm">{selectedCustomer['EMAIL NGƯỜI LIÊN HỆ'] || 'N/A'}</p>
+                        </div>
                       </div>
                     </div>
+                  )}
+
+                  {/* Ưu đãi chung */}
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700 block">% Ưu đãi chung</label>
+                    <div className="flex items-center">
+                      <input
+                        type="number"
+                        id="UUDAI"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-l-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        value={quoteSettings.UUDAI}
+                        onChange={handleQuoteSettingsChange}
+                        min="0"
+                        max="100"
+                      />
+                      <div className="bg-gray-100 px-3 py-2 text-sm border border-l-0 border-gray-300 rounded-r-md text-gray-500">
+                        %
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* VAT */}
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700 block">% VAT</label>
+                    <div className="flex items-center">
+                      <input
+                        type="number"
+                        id="PT_VAT"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-l-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        value={quoteSettings.PT_VAT}
+                        onChange={handleQuoteSettingsChange}
+                        min="0"
+                        max="100"
+                      />
+                      <div className="bg-gray-100 px-3 py-2 text-sm border border-l-0 border-gray-300 rounded-r-md text-gray-500">
+                        %
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Số buổi */}
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700 block">Số buổi</label>
+                    <input
+                      type="number"
+                      id="SOBUOI"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      value={additionalSettings.SOBUOI}
+                      onChange={handleAdditionalSettingsChange}
+                      min="0"
+                    />
+                  </div>
+
+                
+
+                  {/* Phí duy trì */}
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700 block">Phí duy trì</label>
+                    <input
+                      type="number"
+                      id="PHIDUYTRI"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      value={additionalSettings.PHIDUYTRI}
+                      onChange={handleAdditionalSettingsChange}
+                      min="0"
+                    />
+                  </div>
+
+                  {/* Phí public app */}
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700 block">Phí public app</label>
+                    <input
+                      type="number"
+                      id="PHIPUBLICAPP"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      value={additionalSettings.PHIPUBLICAPP}
+                      onChange={handleAdditionalSettingsChange}
+                      min="0"
+                    />
+                  </div>
+
+                  {/* Ghi chú */}
+                  <div className="space-y-1 md:col-span-3">
+                    <label className="text-sm font-medium text-gray-700 block">Ghi chú</label>
+                    <textarea
+                      id="GHICHU"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                      value={additionalSettings.GHICHU}
+                      onChange={handleAdditionalSettingsChange}
+                      rows="2"
+                    ></textarea>
                   </div>
                 </div>
 
-                <div className="bg-gray-50 p-5 rounded-lg shadow-sm border border-gray-100">
-                  <div className="flex justify-between py-2.5 border-b border-gray-200">
-                    <span className="text-gray-600">Tổng tiền hàng:</span>
-                    <span className="font-medium">{formatCurrency(totals.totalBeforeDiscount)} đ</span>
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="px-4 py-2 text-sm bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors flex items-center"
+                    disabled={loading}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Làm mới
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={submitForm}
+                    className="px-4 py-2 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors flex items-center"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Đang xử lý...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Lưu báo giá
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Services Table */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-800">Chi Tiết Báo Giá</h2>
+                <div className="text-sm text-gray-500">
+                  Tổng số dịch vụ: <span className="font-medium">{selectedServices.length}</span>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <ServicesTable
+                  items={selectedServices}
+                  onQuantityChange={handleServiceQuantityChange}
+                  onDiscountChange={handleServiceDiscountChange}
+                  onPriceChange={handleServicePriceChange}
+                  onNoteChange={handleServiceNoteChange}
+                  onRemove={handleRemoveService}
+                  vatPercent={quoteSettings.PT_VAT}
+                  onEdit={handleShowEditModal}
+                />
+              </div>
+
+              {/* Totals Section */}
+              {selectedServices.length > 0 && (
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 text-sm">
+                      <div className="text-gray-600">Tổng tiền trước ưu đãi:</div>
+                      <div className="text-right font-medium">{formatCurrency(totals.afterItemDiscount)}</div>
+                    </div>
+                    <div className="grid grid-cols-2 text-sm">
+                      <div className="text-gray-600">Ưu đãi ({quoteSettings.UUDAI}%):</div>
+                      <div className="text-right font-medium text-red-500">-{formatCurrency(totals.generalDiscountAmount)}</div>
+                    </div>
+                    <div className="grid grid-cols-2 text-sm">
+                      <div className="text-gray-600">Sau ưu đãi:</div>
+                      <div className="text-right font-medium">{formatCurrency(totals.afterGeneralDiscount)}</div>
+                    </div>
+                    <div className="grid grid-cols-2 text-sm">
+                      <div className="text-gray-600">VAT ({quoteSettings.PT_VAT}%):</div>
+                      <div className="text-right font-medium">{formatCurrency(totals.vatAmount)}</div>
+                    </div>
+                    <div className="grid grid-cols-2 text-sm">
+                      <div className="text-gray-600">Sau VAT:</div>
+                      <div className="text-right font-medium">{formatCurrency(totals.afterVat)}</div>
+                    </div>
+
+                    {(totals.maintenanceFee > 0 || totals.publicAppFee > 0) && (
+                      <>
+                        <div className="border-t border-gray-200 my-2 pt-2"></div>
+                        {totals.maintenanceFee > 0 && (
+                          <div className="grid grid-cols-2 text-sm">
+                            <div className="text-gray-600">Phí duy trì:</div>
+                            <div className="text-right font-medium">{formatCurrency(totals.maintenanceFee)}</div>
+                          </div>
+                        )}
+                        {totals.publicAppFee > 0 && (
+                          <div className="grid grid-cols-2 text-sm">
+                            <div className="text-gray-600">Phí public app:</div>
+                            <div className="text-right font-medium">{formatCurrency(totals.publicAppFee)}</div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    <div className="border-t border-gray-200 my-2 pt-2"></div>
+                    <div className="grid grid-cols-2 text-md">
+                      <div className="font-semibold text-gray-800">TỔNG CỘNG:</div>
+                      <div className="text-right font-bold text-blue-600">{formatCurrency(totals.grandTotal)}</div>
+                    </div>
                   </div>
-                  <div className="flex justify-between py-2.5 border-b border-gray-200">
-                    <span className="text-gray-600">Tổng tiền ưu đãi:</span>
-                    <span className="font-medium text-red-500">-{formatCurrency(totals.totalDiscount)} đ</span>
-                  </div>
-                  <div className="flex justify-between py-2.5 border-b border-gray-200">
-                    <span className="text-gray-600">Thành tiền trước VAT:</span>
-                    <span className="font-medium">{formatCurrency(totals.totalAfterDiscount)} đ</span>
-                  </div>
-                  <div className="flex justify-between py-2.5 border-b border-gray-200">
-                    <span className="text-gray-600">VAT ({quoteInfo.vatRate}%):</span>
-                    <span className="font-medium">{formatCurrency(totals.vatAmount)} đ</span>
-                  </div>
-                  <div className="flex justify-between py-2.5 border-b border-gray-200">
-                    <span className="text-gray-600">Chi phí duy trì:</span>
-                    <span className="font-medium">{formatCurrency(totals.maintenanceFee)} đ</span>
-                  </div>
-                  <div className="flex justify-between py-2.5 border-b border-gray-200">
-                    <span className="text-gray-600">Phí Public App:</span>
-                    <span className="font-medium">{formatCurrency(totals.publicAppFee)} đ</span>
-                  </div>
-                  <div className="flex justify-between py-3.5 font-bold text-lg mt-1">
-                    <span className="text-gray-800">TỔNG THANH TOÁN:</span>
-                    <span className="text-indigo-600">{formatCurrency(totals.grandTotal)} đ</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Toast Container */}
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
+
+        {/* Advanced Search Modal */}
+        {showAdvancedSearch && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full flex flex-col max-h-[80vh]">
+              {/* Header */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-bold text-gray-800">Tìm kiếm nâng cao</h2>
+                  <button
+                    onClick={() => setShowAdvancedSearch(false)}
+                    className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="space-y-6">
+                  {/* Phân loại */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 mb-3">Phân loại</h3>
+                    <div className="grid grid-cols-1 gap-3">
+                      {currentCategories.map((category, index) => (
+                        <button
+                          key={index}
+                          onClick={() => {
+                            handleSelectCategory(category.name);
+                          }}
+                          className={`p-4 rounded-lg border text-left transition-colors ${selectedCategories.includes(category.name)
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:bg-gray-50'
+                            }`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="font-medium text-gray-900">{category.name}</div>
+                              {category.dt && (
+                                <div className="text-sm text-gray-500 mt-1">{category.dt}</div>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {category.count} dịch vụ
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Export options */}
-                  <div className="mt-4 flex justify-end">
-                    <div className="dropdown relative inline-block">
-                      <button className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition flex items-center">
-                        <File className="h-4 w-4 mr-2" />
-                        <span>Xuất báo giá</span>
-                        <ChevronDown className="h-3 w-3 ml-2" />
+                  {/* Phân trang */}
+                  <div className="flex justify-between items-center pt-4 border-t border-gray-200">
+                    <div className="text-sm text-gray-500">
+                      Hiển thị {currentCategories.length} / {filteredCategories.length} phân loại
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setCurrentCategoryPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentCategoryPage === 1}
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Trước
+                      </button>
+                      <button
+                        onClick={() => setCurrentCategoryPage(prev => Math.min(totalCategoryPages, prev + 1))}
+                        disabled={currentCategoryPage === totalCategoryPages}
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Sau
                       </button>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </main>
-      </div>
 
-      {/* Footer */}
-      <footer className="bg-gray-50 border-t border-gray-200 py-4 mt-auto">
-        <div className="container mx-auto px-4 flex justify-between items-center">
-          <div className="text-sm text-gray-600">
-            © 2025 Hệ thống Tạo Báo Giá - Mọi quyền được bảo lưu
-          </div>
-          <div className="text-sm text-gray-500">
-            <a href="#" className="hover:text-indigo-500 transition mr-4">Trợ giúp</a>
-            <a href="#" className="hover:text-indigo-500 transition mr-4">Điều khoản</a>
-            <a href="#" className="hover:text-indigo-500 transition">Liên hệ</a>
-          </div>
-        </div>
-      </footer>
-
-      {/* Company Search Modal */}
-      {showCompanyModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col fade-in">
-            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-700">Tìm kiếm công ty</h3>
-              <button 
-                className="text-gray-500 hover:text-gray-700 p-1 rounded hover:bg-gray-100"
-                onClick={() => setShowCompanyModal(false)}
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-4 border-b border-gray-200">
-              <div className="mb-2 relative">
-                <input 
-                  type="text" 
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Tìm kiếm theo tên công ty, MST, tên viết tắt..."
-                />
-                <Search className="h-4 w-4 absolute left-3 top-3.5 text-gray-400" />
+              {/* Footer */}
+              <div className="p-6 border-t border-gray-200 bg-gray-50">
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      setSelectedCategories([]);
+                      setShowAdvancedSearch(false);
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Xóa bộ lọc
+                  </button>
+                  <button
+                    onClick={() => setShowAdvancedSearch(false)}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    Áp dụng
+                  </button>
+                </div>
               </div>
             </div>
-            <div className="overflow-y-auto flex-grow">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50 sticky top-0">
-                  <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tên công ty
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      TVT
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      MST
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Chọn
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {companyList.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="px-4 py-4 text-center text-gray-500">
-                        Không tìm thấy công ty phù hợp.
-                      </td>
-                    </tr>
-                  ) : (
-                    companyList.map(company => (
-                      <tr key={company.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900">{company.name || ''}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{company.shortName || ''}</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{company.taxCode || ''}</td>
-                        <td className="px-4 py-3 text-sm font-medium text-center">
-                          <button 
-                            className="text-indigo-600 hover:text-indigo-900 px-3 py-1 rounded hover:bg-indigo-50"
-                            onClick={() => handleSelectCompany(company)}
-                          >
-                            Chọn
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+          </div>
+        )}
+
+        {/* Category Modal */}
+        {showCategoryModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full flex flex-col max-h-[80vh]">
+              {/* Header */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-bold text-gray-800">Chọn phân loại</h2>
+                  <button
+                    onClick={handleCloseCategoryModal}
+                    className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="mt-4 relative">
+                  <input
+                    type="text"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent will-change-contents"
+                    placeholder="Tìm kiếm phân loại..."
+                    value={categorySearchQuery}
+                    onChange={(e) => setCategorySearchQuery(e.target.value)}
+                  />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6 contain-content">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-3">
+                    {currentCategories.map((category, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          handleSelectCategory(category.name);
+                          handleCloseCategoryModal();
+                        }}
+                        className={`p-4 rounded-lg border text-left transition-colors ${selectedCategories.includes(category.name)
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:bg-gray-50'
+                          }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-medium text-gray-900">{category.name}</div>
+                            {category.dt && (
+                              <div className="text-sm text-gray-500 mt-1">{category.dt}</div>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {category.count} dịch vụ
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-6 border-t border-gray-200 bg-gray-50">
+                <div className="flex justify-between items-center">
+                  <div className="text-sm text-gray-500">
+                    Hiển thị {currentCategories.length} / {filteredCategories.length} phân loại
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCurrentCategoryPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentCategoryPage === 1}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Trước
+                    </button>
+                    <button
+                      onClick={() => setCurrentCategoryPage(prev => Math.min(totalCategoryPages, prev + 1))}
+                      disabled={currentCategoryPage === totalCategoryPages}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Sau
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Toast for notifications */}
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-      />
-    </div>
+        {/* Detail Modal */}
+        {showDetailModal && selectedService && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-bold text-gray-800">Chi tiết dịch vụ</h2>
+                  <button
+                    onClick={handleCloseDetailModal}
+                    className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 contain-content">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Mã hàng hóa</label>
+                      <div className="mt-1 text-gray-900">{selectedService['Ma_HHDV']}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Tên hàng hóa</label>
+                      <div className="mt-1 text-gray-900">{selectedService['TÊN HH DV']}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Chi tiết</label>
+                      <div className="mt-1 text-gray-900">{selectedService['CHI TIẾT'] || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Đơn vị tính</label>
+                      <div className="mt-1 text-gray-900">{selectedService['DVT']}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Phân loại</label>
+                      <div className="mt-1 text-gray-900">{selectedService['PHÂN LOẠI'] || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Phân loại DT</label>
+                      <div className="mt-1 text-gray-900">{selectedService['PHÂN LOẠI DT'] || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">NCC ưu tiên</label>
+                      <div className="mt-1 text-gray-900">{selectedService['NCC ƯU TIÊN'] || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Giá mua</label>
+                      <div className="mt-1 text-gray-900">{formatCurrency(selectedService['GIÁ MUA'] || 0)}</div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Giá bán</label>
+                      <div className="mt-1 text-gray-900">{formatCurrency(selectedService['GIÁ BÁN'] || 0)}</div>
+                    </div>
+                    {selectedService['HÌNH ẢNH'] && (
+                      <div className="md:col-span-2">
+                        <label className="text-sm font-medium text-gray-500">Hình ảnh</label>
+                        <div className="mt-2">
+                          <img
+                            src={selectedService['HÌNH ẢNH']}
+                            alt={selectedService['TÊN HH DV']}
+                            className="max-w-full h-auto rounded-lg contain-content"
+                            loading="lazy"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-gray-200 bg-gray-50">
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={handleCloseDetailModal}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Đóng
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleSelectService(selectedService['Ma_HHDV']);
+                      handleCloseDetailModal();
+                    }}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    Thêm vào báo giá
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Success Modal */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+              <div className="flex justify-between items-center mb-5">
+                <h2 className="text-xl font-bold text-gray-800">Tạo báo giá thành công</h2>
+                <button
+                  onClick={() => setShowSuccessModal(false)}
+                  className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-green-50 border border-green-100 rounded-lg p-4">
+                  <p className="text-green-700">
+                    Báo giá <span className="font-bold">{createdQuotationId}</span> đã được tạo thành công!
+                  </p>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={() => setShowSuccessModal(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Đóng
+                  </button>
+                  <Link
+                    to={`/quotations/${createdQuotationId}/preview`}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center"
+                  >
+                    <Printer className="w-4 h-4 mr-2" />
+                    Xem báo giá
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Modal */}
+        {showEditModal && editingService && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-bold text-gray-800">Chỉnh sửa dịch vụ</h2>
+                  <button
+                    onClick={handleCloseEditModal}
+                    className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+      </div>
+              </div>
+
+              <div className="p-6">
+                <div className="space-y-6">
+                  {/* Service Info */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Mã dịch vụ</p>
+                        <p className="mt-1 text-gray-900">{editingService.service['Ma_HHDV']}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Tên dịch vụ</p>
+                        <p className="mt-1 text-gray-900">{editingService.service['TÊN HH DV']}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Đơn vị tính</p>
+                        <p className="mt-1 text-gray-900">{editingService.service['DVT']}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Phân loại</p>
+                        <p className="mt-1 text-gray-900">{editingService.service['PHÂN LOẠI'] || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Edit Form */}
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Số lượng
+                      </label>
+                      <input
+                        type="number"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        value={editingService.quantity}
+                        onChange={(e) => setEditingService(prev => ({
+                          ...prev,
+                          quantity: parseInt(e.target.value) || 1
+                        }))}
+                        min="1"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Đơn giá
+                      </label>
+                      <input
+                        type="number"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        value={editingService.price}
+                        onChange={(e) => setEditingService(prev => ({
+                          ...prev,
+                          price: parseInt(e.target.value) || 0
+                        }))}
+                        min="0"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        % Ưu đãi
+                      </label>
+                      <input
+                        type="number"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        value={editingService.discountPercent}
+                        onChange={(e) => setEditingService(prev => ({
+                          ...prev,
+                          discountPercent: Math.min(parseFloat(e.target.value) || 0, 100)
+                        }))}
+                        min="0"
+                        max="100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Ghi chú
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        value={editingService.note}
+                        onChange={(e) => setEditingService(prev => ({
+                          ...prev,
+                          note: e.target.value
+                        }))}
+                        placeholder="Nhập ghi chú..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Preview */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="text-sm font-medium text-gray-700 mb-3">Xem trước</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Thành tiền:</span>
+                        <span className="font-medium">{formatCurrency(editingService.quantity * editingService.price)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Ưu đãi ({editingService.discountPercent}%):</span>
+                        <span className="font-medium text-red-500">
+                          -{formatCurrency(Math.round(editingService.quantity * editingService.price * (editingService.discountPercent / 100)))}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Sau ưu đãi:</span>
+                        <span className="font-medium">
+                          {formatCurrency(editingService.quantity * editingService.price * (1 - editingService.discountPercent / 100))}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-gray-200 bg-gray-50">
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={handleCloseEditModal}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    onClick={() => handleSaveEdit(editingService)}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    Lưu thay đổi
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </QuotationContext.Provider>
   );
 };
 
-export default QuoteSystem;
+const QuotationFormWithStyles = () => (
+  <>
+    <QuotationForm />
+  </>
+);
+
+export default QuotationFormWithStyles;
