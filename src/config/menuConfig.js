@@ -82,6 +82,16 @@ export const dashboardMenuItems = [
                 }
             },
             {
+                text: 'Báo giá',
+                icon: ChartPie,
+                path: '/quotation-list',
+                description: 'Báo giá',
+                permissions: {
+                    PhanQuyen: ["Admin", "All"],
+                    Phong: ["Giám đốc"],
+                }
+            },
+            {
                 text: 'Hợp đồng',
                 icon: ChartPie,
                 path: '/hopdong',

@@ -6,6 +6,7 @@ import authUtils from '../utils/authUtils';
 import { Link } from 'react-router-dom';
 import { FixedSizeList as List } from 'react-window';
 import useSWR from 'swr';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 // Context API
 const QuotationContext = createContext();
@@ -382,6 +383,15 @@ const ServicesTable = React.memo(({ items, onQuantityChange, onDiscountChange, o
 // Main component
 const QuotationForm = () => {
   // Use SWR for data fetching with caching
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [originalQuoteData, setOriginalQuoteData] = useState(null);
+  
+  // Lấy ID từ query parameter
+  const queryParams = new URLSearchParams(location.search);
+  const quoteId = queryParams.get('id');
+  
   const { data: servicesData, error: servicesError, mutate: mutateServices } = useSWR('services', fetchServices, {
     revalidateOnFocus: false,
     dedupingInterval: 3600000, // 1 hour
@@ -1609,7 +1619,7 @@ const QuotationForm = () => {
                     Đóng
                   </button>
                   <Link
-                    to={`/quotations/${createdQuotationId}/preview`}
+                    to={`/quotation-list`}
                     className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center"
                   >
                     <Printer className="w-4 h-4 mr-2" />

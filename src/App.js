@@ -21,7 +21,7 @@ import PhanBoDT from './pages/PhanBoDT';
 import PhanBoDTview from './pages/PhanBoDTview';
 import GhiNhanPage from './pages/GhiNhanPage';
 import ThongKePage from './pages/ThongKePage';
-
+import QuotationList from './pages/QuotationList';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -65,7 +65,7 @@ function App() {
                   <Route path="/PhanBoDTview" element={<PhanBoDTview />} />
                   <Route path="/ghinhan" element={<GhiNhanPage />} />
                   <Route path="/thongke" element={<ThongKePage />} />
-
+                  <Route path="/quotation-list" element={<QuotationList />} />
 
 
 

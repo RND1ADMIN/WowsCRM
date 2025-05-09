@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext, useTransition } from 'react';
-import { Search, PlusCircle, FileSearch, Trash2, Eye, CheckCircle, Printer, Save, RefreshCw, Download, Upload, FileText, X, Calculator, Users, FileCheck, CalendarClock, Percent } from 'lucide-react';
+import { Search, PlusCircle, FileSearch, Trash2, Eye, CheckCircle, Printer, Save, RefreshCw, Download, Upload, FileText, X, Calculator, Users, FileCheck, CalendarClock, Percent, Edit } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
 import { Link } from 'react-router-dom';
 import { FixedSizeList as List } from 'react-window';
 import useSWR from 'swr';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 // Context API
 const QuotationContext = createContext();
@@ -109,6 +110,66 @@ const ServiceCard = React.memo(({ service, isSelected, onSelect, onViewDetail })
   );
 });
 
+const ServiceCardCompact = React.memo(({ service, isSelected, onSelect, onViewDetail }) => {
+  return (
+    <div
+      className={`border rounded-lg p-2 ${isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-indigo-300'
+        } transition-all cursor-pointer`}
+    >
+      <div className="flex items-start">
+        <div className="mr-2 mt-0.5">
+          <FileText className="h-4 w-4 text-indigo-500" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between items-start">
+            <h3 className="text-sm font-medium text-gray-800 truncate w-3/4" title={service['TÊN HH DV']}>
+              {service['TÊN HH DV']}
+            </h3>
+            <div className="text-xs font-semibold text-indigo-600 whitespace-nowrap">
+              {parseInt(service['GIÁ BÁN']).toLocaleString('vi-VN')} đ
+            </div>
+          </div>
+          <div className="text-xs text-gray-500 mt-0.5 truncate" title={service.Ma_HHDV}>
+            Mã: {service.Ma_HHDV}
+          </div>
+          <div className="flex items-center mt-1.5 justify-between">
+            <div className="flex items-center">
+              <span className="inline-flex items-center bg-gray-100 px-1.5 py-0.5 rounded text-xs text-gray-600 truncate max-w-[100px]" title={service.Loai_DV}>
+                {service['PHÂN LOẠI']|| "Chưa phân loại"}
+              </span>
+            </div>
+            <div className="flex space-x-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewDetail();
+                }}
+                className="p-1 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+              >
+                <Eye className="h-3 w-3" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect();
+                }}
+                className={`p-1 rounded ${isSelected ? "text-indigo-600 bg-indigo-100" : "text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
+                  }`}
+              >
+                {isSelected ? (
+                  <CheckCircle className="h-3 w-3" />
+                ) : (
+                  <PlusCircle className="h-3 w-3" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 const CategoryFilter = React.memo(({ categories, selectedCategories, onSelectCategory }) => (
   <div className="flex flex-wrap gap-2">
     {categories.map((category) => {
@@ -141,7 +202,7 @@ const CategoryFilter = React.memo(({ categories, selectedCategories, onSelectCat
   </div>
 ));
 
-const ServiceTableRow = React.memo(({ item, index, onQuantityChange, onDiscountChange, onPriceChange, onNoteChange, onRemove, vatPercent }) => {
+const ServiceTableRow = React.memo(({ item, index, onQuantityChange, onDiscountChange, onPriceChange, onNoteChange, onRemove, vatPercent, onEdit }) => {
   const subtotal = item.price * item.quantity;
   const discountAmount = Math.round(subtotal * (item.discountPercent / 100));
   const afterDiscount = subtotal - discountAmount;
@@ -209,6 +270,14 @@ const ServiceTableRow = React.memo(({ item, index, onQuantityChange, onDiscountC
         />
       </td>
       <td className="px-3 py-2 text-center">
+        <div className="flex items-center justify-center space-x-1">
+          <button
+            onClick={() => onEdit(item, index)}
+            className="text-blue-500 hover:text-blue-700 p-1 hover:bg-blue-50 rounded-full transition-colors"
+            title="Chỉnh sửa"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
         <button
           onClick={() => onRemove(index)}
           className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-full transition-colors"
@@ -216,12 +285,13 @@ const ServiceTableRow = React.memo(({ item, index, onQuantityChange, onDiscountC
         >
           <Trash2 className="w-4 h-4" />
         </button>
+        </div>
       </td>
     </tr>
   );
 });
 
-const ServicesTable = React.memo(({ items, onQuantityChange, onDiscountChange, onPriceChange, onNoteChange, onRemove, vatPercent }) => {
+const ServicesTable = React.memo(({ items, onQuantityChange, onDiscountChange, onPriceChange, onNoteChange, onRemove, vatPercent, onEdit }) => {
   if (items.length === 0) {
     return (
       <div className="text-center py-8">
@@ -273,7 +343,7 @@ const ServicesTable = React.memo(({ items, onQuantityChange, onDiscountChange, o
           </th>
         </tr>
       </thead>
-      <tbody className="bg-white divide-y divide-gray-200 text-sm">
+      <tbody className="bg-white divide-y divide-gray-200">
         {items.map((item, index) => (
           <ServiceTableRow
             key={index}
@@ -285,6 +355,7 @@ const ServicesTable = React.memo(({ items, onQuantityChange, onDiscountChange, o
             onNoteChange={onNoteChange}
             onRemove={onRemove}
             vatPercent={vatPercent}
+            onEdit={onEdit}
           />
         ))}
         <tr className="bg-gray-50 font-medium">
@@ -312,6 +383,15 @@ const ServicesTable = React.memo(({ items, onQuantityChange, onDiscountChange, o
 // Main component
 const QuotationForm = () => {
   // Use SWR for data fetching with caching
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [originalQuoteData, setOriginalQuoteData] = useState(null);
+  
+  // Lấy ID từ query parameter
+  const queryParams = new URLSearchParams(location.search);
+  const quoteId = queryParams.get('id');
+  
   const { data: servicesData, error: servicesError, mutate: mutateServices } = useSWR('services', fetchServices, {
     revalidateOnFocus: false,
     dedupingInterval: 3600000, // 1 hour
@@ -364,6 +444,8 @@ const QuotationForm = () => {
   const [createdQuotationId, setCreatedQuotationId] = useState(null);
   const [previousQuotes, setPreviousQuotes] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingService, setEditingService] = useState(null);
 
   const services = servicesData || [];
   const customers = customersData || [];
@@ -693,7 +775,7 @@ const QuotationForm = () => {
         "TT SAU VAT": totals.afterVat,
         "THỜI HẠN BÁO GIÁ": quoteExpiryDate,
         "SỐ BUỔI": additionalSettings.SOBUOI,
-        "THỜI HẠN": additionalSettings.THOIHAN,
+        "THỜI HẠN": additionalSettings.THOIHANGIA,
         "PHÍ DUY TRÌ": additionalSettings.PHIDUYTRI,
         "PHÍ PUBLIC APP": additionalSettings.PHIPUBLICAPP,
         "TỔNG TIỀN": totals.grandTotal,
@@ -760,65 +842,32 @@ const QuotationForm = () => {
     setSelectedService(null);
     setShowDetailModal(false);
   }, []);
-  const ServiceCardCompact = ({ service, isSelected, onSelect, onViewDetail }) => {
-    return (
-      <div
-        className={`border rounded-lg p-2 ${isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-indigo-300'
-          } transition-all cursor-pointer`}
-      >
-        <div className="flex items-start">
-          <div className="mr-2 mt-0.5">
-            <FileText className="h-4 w-4 text-indigo-500" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex justify-between items-start">
-              <h3 className="text-sm font-medium text-gray-800 truncate w-3/4" title={service['TÊN HH DV']}>
-                {service['TÊN HH DV']}
-              </h3>
-              <div className="text-xs font-semibold text-indigo-600 whitespace-nowrap">
-                {parseInt(service['GIÁ BÁN']).toLocaleString('vi-VN')} đ
-              </div>
-            </div>
-            <div className="text-xs text-gray-500 mt-0.5 truncate" title={service.Ma_HHDV}>
-              Mã: {service.Ma_HHDV}
-            </div>
-            <div className="flex items-center mt-1.5 justify-between">
-              <div className="flex items-center">
-                <span className="inline-flex items-center bg-gray-100 px-1.5 py-0.5 rounded text-xs text-gray-600 truncate max-w-[100px]" title={service.Loai_DV}>
-                  {service['PHÂN LOẠI']|| "Chưa phân loại"}
-                </span>
-              </div>
-              <div className="flex space-x-1">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onViewDetail();
-                  }}
-                  className="p-1 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded"
-                >
-                  <Eye className="h-3 w-3" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelect();
-                  }}
-                  className={`p-1 rounded ${isSelected ? "text-indigo-600 bg-indigo-100" : "text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
-                    }`}
-                >
-                  {isSelected ? (
-                    <CheckCircle className="h-3 w-3" />
-                  ) : (
-                    <PlusCircle className="h-3 w-3" />
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
+
+  const handleShowEditModal = useCallback((item, index) => {
+    setEditingService({ ...item, index });
+    setShowEditModal(true);
+  }, []);
+
+  const handleCloseEditModal = useCallback(() => {
+    setEditingService(null);
+    setShowEditModal(false);
+  }, []);
+
+  const handleSaveEdit = useCallback((updatedService) => {
+    setSelectedServices(prev => {
+      const updated = [...prev];
+      updated[updatedService.index] = {
+        ...updated[updatedService.index],
+        quantity: updatedService.quantity,
+        price: updatedService.price,
+        discountPercent: updatedService.discountPercent,
+        note: updatedService.note
+      };
+      return updated;
+    });
+    handleCloseEditModal();
+  }, []);
+
   // Create a context value for child components
   const contextValue = {
     selectedServices,
@@ -888,7 +937,7 @@ const QuotationForm = () => {
               ) : filteredServices.length > 0 ? (
                 <div className="p-2">
                   <List
-                    height={530}
+                    height={610}
                     itemCount={filteredServices.length}
                     itemSize={80}
                     width="100%"
@@ -1092,18 +1141,7 @@ const QuotationForm = () => {
                     />
                   </div>
 
-                  {/* Thời hạn */}
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700 block">Thời hạn (ngày)</label>
-                    <input
-                      type="number"
-                      id="THOIHAN"
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                      value={additionalSettings.THOIHAN}
-                      onChange={handleAdditionalSettingsChange}
-                      min="0"
-                    />
-                  </div>
+                
 
                   {/* Phí duy trì */}
                   <div className="space-y-1">
@@ -1196,6 +1234,7 @@ const QuotationForm = () => {
                   onNoteChange={handleServiceNoteChange}
                   onRemove={handleRemoveService}
                   vatPercent={quoteSettings.PT_VAT}
+                  onEdit={handleShowEditModal}
                 />
               </div>
 
@@ -1591,13 +1630,163 @@ const QuotationForm = () => {
             </div>
           </div>
         )}
+
+        {/* Edit Modal */}
+        {showEditModal && editingService && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-bold text-gray-800">Chỉnh sửa dịch vụ</h2>
+                  <button
+                    onClick={handleCloseEditModal}
+                    className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+      </div>
+              </div>
+
+              <div className="p-6">
+                <div className="space-y-6">
+                  {/* Service Info */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Mã dịch vụ</p>
+                        <p className="mt-1 text-gray-900">{editingService.service['Ma_HHDV']}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Tên dịch vụ</p>
+                        <p className="mt-1 text-gray-900">{editingService.service['TÊN HH DV']}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Đơn vị tính</p>
+                        <p className="mt-1 text-gray-900">{editingService.service['DVT']}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Phân loại</p>
+                        <p className="mt-1 text-gray-900">{editingService.service['PHÂN LOẠI'] || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Edit Form */}
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Số lượng
+                      </label>
+                      <input
+                        type="number"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        value={editingService.quantity}
+                        onChange={(e) => setEditingService(prev => ({
+                          ...prev,
+                          quantity: parseInt(e.target.value) || 1
+                        }))}
+                        min="1"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Đơn giá
+                      </label>
+                      <input
+                        type="number"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        value={editingService.price}
+                        onChange={(e) => setEditingService(prev => ({
+                          ...prev,
+                          price: parseInt(e.target.value) || 0
+                        }))}
+                        min="0"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        % Ưu đãi
+                      </label>
+                      <input
+                        type="number"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        value={editingService.discountPercent}
+                        onChange={(e) => setEditingService(prev => ({
+                          ...prev,
+                          discountPercent: Math.min(parseFloat(e.target.value) || 0, 100)
+                        }))}
+                        min="0"
+                        max="100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Ghi chú
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                        value={editingService.note}
+                        onChange={(e) => setEditingService(prev => ({
+                          ...prev,
+                          note: e.target.value
+                        }))}
+                        placeholder="Nhập ghi chú..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Preview */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="text-sm font-medium text-gray-700 mb-3">Xem trước</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Thành tiền:</span>
+                        <span className="font-medium">{formatCurrency(editingService.quantity * editingService.price)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Ưu đãi ({editingService.discountPercent}%):</span>
+                        <span className="font-medium text-red-500">
+                          -{formatCurrency(Math.round(editingService.quantity * editingService.price * (editingService.discountPercent / 100)))}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Sau ưu đãi:</span>
+                        <span className="font-medium">
+                          {formatCurrency(editingService.quantity * editingService.price * (1 - editingService.discountPercent / 100))}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-gray-200 bg-gray-50">
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={handleCloseEditModal}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    onClick={() => handleSaveEdit(editingService)}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    Lưu thay đổi
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </QuotationContext.Provider>
   );
 };
-
-
-
 
 const QuotationFormWithStyles = () => (
   <>
